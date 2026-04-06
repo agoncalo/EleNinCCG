@@ -132,6 +132,8 @@ class Game {
         cell.className = 'grid-cell';
         cell.dataset.row = r;
         cell.dataset.col = c;
+        // Click-to-move: clicking a cell in the player row moves there
+        cell.addEventListener('click', () => this._onCellClick(+cell.dataset.row, +cell.dataset.col));
         gridDiv.appendChild(cell);
         this.el.cells[r][c] = cell;
       }
@@ -170,15 +172,31 @@ class Game {
       slot.className = 'hand-slot';
       slot.dataset.index = i;
       slot.innerHTML = `<div class="hand-key">${keys[i]}</div><div class="hand-card-inner"></div>`;
+      // Tap to play card on mobile
+      slot.addEventListener('click', () => this.playCard(i));
       handDiv.appendChild(slot);
       this.el.handSlots[i] = slot;
     }
     wrap.appendChild(handDiv);
 
+    // Mobile move buttons
+    const mobileControls = document.createElement('div');
+    mobileControls.id = 'mobile-controls';
+    mobileControls.innerHTML = `
+      <button class="mobile-btn mobile-left" id="btn-move-left">◀</button>
+      <span class="mobile-hint">Tap grid or cards</span>
+      <button class="mobile-btn mobile-right" id="btn-move-right">▶</button>
+    `;
+    wrap.appendChild(mobileControls);
+
+    // Mobile button handlers
+    document.getElementById('btn-move-left').addEventListener('click', () => this.movePlayer(-1));
+    document.getElementById('btn-move-right').addEventListener('click', () => this.movePlayer(1));
+
     // Controls hint
     const hint = document.createElement('div');
     hint.id = 'controls-hint';
-    hint.textContent = '← A / D → Move   |   Z  X  C  Play Cards';
+    hint.textContent = '← A / D → Move   |   Z  X  C  Play Cards   |   Click grid to move';
     wrap.appendChild(hint);
 
     screen.appendChild(wrap);
@@ -345,6 +363,17 @@ class Game {
       // Ice slide: if stepping onto ice tile, keep sliding in same direction
       this._checkIceSlide(this.playerNinja, 3, dir);
     }
+  }
+
+  // Click on grid cell to move player there (row 3 only, adjacent cells)
+  _onCellClick(row, col) {
+    if (!this.running || this.paused) return;
+    // Only respond to clicks on the player row (row 3)
+    if (row !== 3) return;
+    const diff = col - this.playerNinja.col;
+    if (diff === 0) return;
+    // Move one step toward the clicked column
+    this.movePlayer(diff > 0 ? 1 : -1);
   }
 
   moveCpu(dir) {
@@ -938,6 +967,13 @@ class Game {
         // Row labels
         if (r === 1 && !this.grid[r][c]) cell.classList.add('cpu-zone');
         if (r === 2 && !this.grid[r][c]) cell.classList.add('player-zone');
+
+        // Clickable movement indicators on player row
+        if (r === 3 && c !== this.playerNinja.col) {
+          const diff = Math.abs(c - this.playerNinja.col);
+          if (diff === 1) cell.classList.add('move-target');
+          else cell.classList.add('move-target-far');
+        }
 
         // Tile effects overlay
         for (const t of this.tileEffects) {

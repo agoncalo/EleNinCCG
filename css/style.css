@@ -27,10 +27,11 @@ html, body {
   color: var(--text);
   font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 #app { height: 100vh; display: flex; flex-direction: column; }
-.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; overflow-y: auto; }
 .hidden { display: none !important; }
 
 /* ── Main Menu ────────────────────────────────────────────── */
@@ -411,6 +412,61 @@ html, body {
 /* Controls hint */
 #controls-hint { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
 
+/* ── Mobile move buttons ──────────────────────────────────── */
+#mobile-controls {
+  display: none;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.mobile-btn {
+  width: 56px; height: 48px;
+  font-size: 1.4rem;
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+.mobile-btn:active { background: var(--bg-panel); transform: scale(0.93); }
+.mobile-left { border-color: var(--player); }
+.mobile-right { border-color: var(--player); }
+.mobile-hint { font-size: 0.7rem; color: var(--text-dim); text-align: center; }
+
+/* ── Clickable move targets ───────────────────────────────── */
+.move-target {
+  cursor: pointer;
+  border: 1px dashed rgba(88,166,255,0.4) !important;
+  background: rgba(88,166,255,0.06) !important;
+  transition: background 0.15s, border-color 0.15s;
+}
+.move-target:hover {
+  background: rgba(88,166,255,0.15) !important;
+  border-color: rgba(88,166,255,0.6) !important;
+}
+.move-target::after {
+  content: '▸';
+  position: absolute;
+  font-size: 1.1rem;
+  color: rgba(88,166,255,0.35);
+  pointer-events: none;
+}
+.move-target-far {
+  cursor: pointer;
+  border: 1px dashed rgba(88,166,255,0.15) !important;
+  background: rgba(88,166,255,0.02) !important;
+}
+.move-target-far:hover {
+  background: rgba(88,166,255,0.08) !important;
+  border-color: rgba(88,166,255,0.3) !important;
+}
+
 /* ── Game result overlay ──────────────────────────────────── */
 #game-result-overlay {
   position: absolute; inset: 0; background: rgba(0,0,0,0.8);
@@ -439,10 +495,126 @@ html, body {
 ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 
 /* ── Responsive ───────────────────────────────────────────── */
+
+/* Touch-friendly defaults for all interactive elements */
+button, .col-card, .hand-slot, .chapter-card, .enemy-card, .grid-cell {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Allow scrolling on panels that need it */
+.collection-grid, .deck-list, .chapter-list, .enemy-list {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 @media (max-width: 700px) {
-  .deck-editor { flex-direction: column; }
-  #deck-panel { min-height: 200px; }
+  html, body { overflow: auto; overflow-x: hidden; }
+  #app { height: auto; min-height: 100vh; }
+
+  /* ── Menu ─────────────────────────────────────── */
   .game-title { font-size: 2rem; }
+  .subtitle { font-size: 0.95rem; margin-bottom: 1.5em; }
+
+  /* ── Chapter / Enemy Select ──────────────────── */
+  .screen { padding: 16px 10px 80px; justify-content: flex-start; overflow-y: auto; }
+  .chapter-list { gap: 10px; padding-bottom: 20px; }
+  .chapter-card { width: 120px; height: 140px; }
+  .enemy-row { gap: 10px; }
+  .enemy-card { width: 100px; height: 130px; }
+  .boss-card { width: 120px; height: 150px; }
+  .back-btn { bottom: 12px; left: 12px; padding: 8px 18px; font-size: 0.9rem; }
+
+  /* ── Deck Editor ─────────────────────────────── */
+  .deck-editor {
+    flex-direction: column;
+    height: auto;
+    max-height: none;
+    padding-bottom: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #collection-panel {
+    flex: none;
+    max-height: 50vh;
+    min-height: 200px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .collection-grid {
+    grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+    gap: 6px;
+    max-height: 40vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .col-card { padding: 8px 6px; }
+  .col-card-name { font-size: 0.78rem; }
+  .filter-bar { gap: 4px; }
+  .filter-btn { padding: 8px 10px; font-size: 0.75rem; }
+  #deck-panel {
+    min-height: 180px;
+    max-height: 40vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .deck-list { max-height: 25vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .deck-row { padding: 8px; }
+  .deck-row-remove { width: 32px; height: 32px; font-size: 1.3rem; }
+
+  /* ── Game Screen ─────────────────────────────── */
+  #screen-game { padding: 0; overflow: hidden; }
+  #game-wrap { padding: 6px 6px 4px; gap: 6px; }
+  .info-bar { padding: 5px 8px; gap: 6px; }
+  .ninja-label { font-size: 0.78rem; min-width: 70px; }
+
+  #game-grid { max-height: 42vh; gap: 3px; padding: 3px; }
+  .grid-cell { border-radius: 4px; }
+  .ninja-icon { font-size: 1.4rem; }
+
+  /* Show mobile controls, hide desktop hint */
+  #mobile-controls { display: flex; }
+  #controls-hint { display: none; }
+
+  /* Hand area */
+  #hand-area { gap: 5px; }
+  .hand-slot { min-height: 90px; padding: 5px; border-radius: 8px; }
+  .hand-key { font-size: 0.6rem; padding: 1px 4px; }
+  .card-art { aspect-ratio: 3 / 2; }
+  .card-art .sticker { font-size: 1.6rem; }
+  .card-art .card-key-big { font-size: 1.6rem; }
+  .card-title { font-size: 0.65rem; }
+  .card-stat { font-size: 0.75rem; }
+  .card-uses { font-size: 0.65rem; }
+  .card-type-badge { font-size: 0.5rem; padding: 1px 4px; }
+  .draw-clock { width: 24px; height: 24px; }
+  .draw-label { font-size: 0.65rem; }
+
+  /* Result overlay */
+  .result-box { padding: 20px 24px; max-width: 90vw; }
+  .result-box h2 { font-size: 1.5rem; }
+  .reward-cards { gap: 6px; }
+  .reward-card { width: 90px; padding: 8px 6px; }
+  .result-buttons { gap: 8px; flex-wrap: wrap; }
+  .result-buttons button { padding: 10px 20px; font-size: 0.9rem; }
+}
+
+/* Extra-small screens */
+@media (max-width: 400px) {
+  .game-title { font-size: 1.6rem; }
+  .big-btn { width: 200px; padding: 14px 0; font-size: 1.1rem; }
+  .chapter-card { width: 100px; height: 120px; }
+  .chapter-icon { font-size: 1.8rem; }
+  .chapter-name { font-size: 0.85rem; }
+  .enemy-card { width: 85px; height: 110px; }
+  .collection-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); }
+  #game-grid { max-height: 38vh; }
+  .hand-slot { min-height: 80px; }
+  .mobile-btn { width: 48px; height: 42px; font-size: 1.2rem; }
+  .ninja-icon { font-size: 1.2rem; }
+  .summon-sticker { font-size: 1.1rem; }
+  .summon-stats { font-size: 0.6rem; }
+  .summon-name { font-size: 0.55rem; }
 }
 
 /* ── Slash Arc effect ─────────────────────────────────────── */
