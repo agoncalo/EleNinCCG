@@ -105,15 +105,21 @@ const DeckEditor = {
       div.className = 'col-card' + (canAdd ? '' : ' maxed');
       div.style.borderColor = cardColor(card.type);
 
+      const elIcon = elementIcon(card.element || 'normal');
+      const elColor = elementColor(card.element || 'normal');
+
       let statsLine = '';
-      if (card.type === 'attack')    statsLine = `\u2694 ${card.damage} DMG`;
+      if (card.type === 'attack')    statsLine = `⚔${card.damage}`;
       if (card.type === 'item')      statsLine = card.description;
-      if (card.type === 'summon')    statsLine = `\u2665${card.hp} \u2694${card.atk}`;
+      if (card.type === 'summon')    statsLine = `♥${card.hp} ⚔${card.atk}`;
       if (card.type === 'equipment') statsLine = card.description;
 
       div.innerHTML = `
-        <div class="col-card-type" style="background:${cardColor(card.type)}">${card.type.toUpperCase()}</div>
-        <div class="card-art small" data-card-id="${id}"><span class="sticker">${card.sticker}</span></div>
+        <div class="col-card-header">
+          <span class="col-card-type" style="background:${cardColor(card.type)}">${card.type.toUpperCase()}</span>
+          <span class="col-card-elem" style="background:${elColor}">${elIcon}</span>
+        </div>
+        <div class="col-card-sticker">${card.sticker}</div>
         <div class="col-card-name" style="color:${rarityColor(card.rarity)}">${card.name}</div>
         <div class="col-card-rarity" style="color:${rarityColor(card.rarity)}">${card.rarity.replace('_',' ')}</div>
         <div class="col-card-stats">${statsLine}</div>

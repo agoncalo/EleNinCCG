@@ -102,6 +102,8 @@ html, body {
   width: 120px; padding: 10px 8px; background: var(--bg-card); border: 2px solid var(--border);
   border-radius: 8px; text-align: center;
 }
+.reward-card .card-header-row { justify-content: center; margin-bottom: 4px; }
+.reward-sticker { font-size: 2.4rem; line-height: 1; margin: 6px 0; }
 .card-desc { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
 
 /* ── Deck Editor ──────────────────────────────────────────── */

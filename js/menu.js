@@ -56,11 +56,13 @@ const Menu = {
     row.className = 'enemy-row';
     for (const enemy of nonBoss) {
       const defeated = progress.defeatedEnemies.includes(enemy.id);
+      const eEl = enemy.element || 'normal';
       const div = document.createElement('div');
       div.className = 'enemy-card' + (defeated ? ' defeated' : '');
       div.innerHTML = `
         <div class="enemy-portrait">${enemy.portrait}</div>
         <div class="enemy-name">${enemy.name}</div>
+        <span class="elem-badge" style="background:${elementColor(eEl)}">${elementIcon(eEl)} ${elementName(eEl)}</span>
         <div class="enemy-hp">HP: ${enemy.hp}</div>
         ${defeated ? '<div class="check-mark">✓</div>' : ''}
       `;
@@ -76,9 +78,11 @@ const Menu = {
       const bossCard = document.createElement('div');
       const bossDefeated = progress.defeatedEnemies.includes(boss.id);
       bossCard.className = 'enemy-card boss-card' + (bossUnlocked ? '' : ' locked') + (bossDefeated ? ' defeated' : '');
+      const bEl = boss.element || 'normal';
       bossCard.innerHTML = `
         <div class="enemy-portrait boss-portrait">${boss.portrait}</div>
         <div class="enemy-name">${boss.name}</div>
+        <span class="elem-badge" style="background:${elementColor(bEl)}">${elementIcon(bEl)} ${elementName(bEl)}</span>
         <div class="enemy-hp">HP: ${boss.hp}</div>
         ${!bossUnlocked ? '<div class="lock-overlay">🔒</div>' : ''}
         ${bossDefeated ? '<div class="check-mark">✓</div>' : ''}

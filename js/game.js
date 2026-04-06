@@ -114,8 +114,11 @@ class Game {
     // CPU info bar
     const cpuBar = document.createElement('div');
     cpuBar.className = 'info-bar cpu-bar';
+    const enemyEl = this.enemyData.element || 'normal';
+    const enemyElInfo = ELEMENTS[enemyEl] || ELEMENTS.normal;
     cpuBar.innerHTML = `
       <span class="ninja-label enemy-color">${this.enemyData.portrait} ${this.enemyData.name}</span>
+      <span class="elem-badge" style="background:${enemyElInfo.color}">${enemyElInfo.icon}</span>
       <span class="hp-wrap"><span class="hp-bar enemy-hp" id="cpu-hp-bar"></span><span id="cpu-hp-text" class="hp-text"></span></span>
       <span class="deck-count" id="cpu-deck-count"></span>
     `;
@@ -496,15 +499,81 @@ class Game {
   //  CARD EFFECTS
   // ════════════════════════════════════════════════════════════
 
+  // ── Elemental multiplier + on-hit effect helper ────────────
+  _applyElementDamage(baseDmg, atkElement, defElement) {
+    const mult = getElementMultiplier(atkElement || 'normal', defElement || 'normal');
+    return { dmg: Math.round(baseDmg * mult), mult };
+  }
+
+  _applyElementOnHit(atkElement, isPlayer, targetRow, targetCol) {
+    const effect = ELEMENT_ON_HIT[atkElement];
+    if (!effect) return;
+    const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
+    const target = isPlayer ? this.cpuNinja : this.playerNinja;
+    switch (effect) {
+      case 'burn':
+        this._spawnTileEffect('burn', targetRow, targetCol);
+        break;
+      case 'stun': {
+        // Stun the target ninja or summon
+        if ((targetRow === 0 || targetRow === 3)) {
+          const tgt = targetRow === 0 ? this.cpuNinja : this.playerNinja;
+          tgt.stunTimer = Math.max(tgt.stunTimer, 800);
+          this._spawnText('⚡Stun!', targetRow, targetCol, '#f1c40f');
+        }
+        const s = this.grid[targetRow] && this.grid[targetRow][targetCol];
+        if (s) { s.stunTimer = Math.max(s.stunTimer, 800); }
+        break;
+      }
+      case 'lifesteal': {
+        const heal = Math.max(1, Math.round(ninja.maxHp * 0.08));
+        ninja.hp = Math.min(ninja.maxHp, ninja.hp + heal);
+        this._spawnText('+' + heal, isPlayer ? 3 : 0, ninja.col, '#2ecc71');
+        this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-heal', 400);
+        break;
+      }
+      case 'freeze':
+        this._spawnTileEffect('ice', targetRow, targetCol);
+        break;
+      case 'poison': {
+        if (targetRow === 0) this.cpuNinja.poison = Math.min(5, this.cpuNinja.poison + 1);
+        if (targetRow === 3) this.playerNinja.poison = Math.min(5, this.playerNinja.poison + 1);
+        break;
+      }
+      case 'pushback': {
+        if (targetRow === 0) { const dir = this.cpuNinja.col <= 1 ? 1 : -1; this.moveCpu(dir); }
+        if (targetRow === 3) { const dir = this.playerNinja.col <= 1 ? 1 : -1; this.movePlayer(dir); }
+        break;
+      }
+      case 'cleanse_enemy': {
+        if (targetRow === 0) { this.cpuNinja.boost = 0; this.cpuNinja.dodge = false; }
+        if (targetRow === 3) { this.playerNinja.boost = 0; this.playerNinja.dodge = false; }
+        this._spawnText('Cleanse!', targetRow, targetCol, '#3498db');
+        break;
+      }
+      case 'shield': {
+        ninja.shield += 2;
+        this._spawnText('+🛡️2', isPlayer ? 3 : 0, ninja.col, '#b8860b');
+        break;
+      }
+    }
+  }
+
+  _showMultiplierText(mult, row, col) {
+    if (mult > 1) this._spawnText('💥Super!', row, col, '#f1c40f');
+    else if (mult < 1) this._spawnText('🛡️Resist', row, col, '#87ceeb');
+  }
+
   // ── Attack: melee (hitscan) or projectile ──────────────────
   _executeAttack(card, col, isPlayer) {
     const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
     let dmg = card.damage;
     if (ninja.boost > 0) { dmg += ninja.boost; ninja.boost = 0; }
+    const element = card.element || 'normal';
     if (card.melee) {
-      this._executeMeleeHit(dmg, col, isPlayer, card.poison || 0, card.pushback || false);
+      this._executeMeleeHit(dmg, col, isPlayer, card.poison || 0, card.pushback || false, element);
     } else if (card.hitscan) {
-      this._executeHitscanAttack(dmg, col, isPlayer, card);
+      this._executeHitscanAttack(dmg, col, isPlayer, card, element);
     } else {
       this.projectiles.push({
         col: col,
@@ -515,25 +584,36 @@ class Game {
         speed: 4.5,
         poison: card.poison || 0,
         pushback: card.pushback || false,
-        areaEffect: card.areaEffect || null
+        areaEffect: card.areaEffect || null,
+        element: element
       });
     }
   }
 
   // ── Hitscan: instant hit on both enemy rows + tile effects ──
-  _executeHitscanAttack(dmg, col, isPlayer, card) {
+  _executeHitscanAttack(dmg, col, isPlayer, card, element) {
     const summonRow = isPlayer ? 1 : 2;
     const ninjaRow  = isPlayer ? 0 : 3;
     const targetNinja = isPlayer ? this.cpuNinja : this.playerNinja;
+    const atkEl = element || card.element || 'normal';
 
     // Hit summon in that column
     if (this.grid[summonRow][col]) {
-      this._damageSummon(summonRow, col, dmg);
+      const defEl = this.grid[summonRow][col].element || 'normal';
+      const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, defEl);
+      this._damageSummon(summonRow, col, adjDmg);
+      this._showMultiplierText(mult, summonRow, col);
+      this._applyElementOnHit(atkEl, isPlayer, summonRow, col);
     }
     // Hit ninja if in that column
     if (col === targetNinja.col) {
-      this._damageNinja(!isPlayer, dmg);
+      const defEl = this.enemyData.element || 'normal';
+      const actualDefEl = isPlayer ? defEl : 'normal';
+      const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, actualDefEl);
+      this._damageNinja(!isPlayer, adjDmg);
+      this._showMultiplierText(mult, ninjaRow, col);
       if (card.poison) targetNinja.poison += card.poison;
+      this._applyElementOnHit(atkEl, isPlayer, ninjaRow, col);
     }
     // Spawn tile effects on both enemy rows
     if (card.areaEffect) {
@@ -543,30 +623,46 @@ class Game {
   }
 
   // ── Melee hitscan: instant damage + stun + slash arc ───────
-  _executeMeleeHit(dmg, col, isPlayer, poison, pushback) {
+  _executeMeleeHit(dmg, col, isPlayer, poison, pushback, element) {
+    const atkEl = element || 'normal';
     let hitRow = isPlayer ? 1 : 2;
     if (isPlayer) {
       if (this.grid[1][col]) {
-        this._damageSummon(1, col, dmg);
+        const defEl = this.grid[1][col].element || 'normal';
+        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, defEl);
+        this._damageSummon(1, col, adjDmg);
+        this._showMultiplierText(mult, 1, col);
         if (this.grid[1][col]) this.grid[1][col].stunTimer = 600;
+        this._applyElementOnHit(atkEl, isPlayer, 1, col);
         hitRow = 1;
       } else if (col === this.cpuNinja.col) {
-        this._damageNinja(false, dmg);
+        const defEl = this.enemyData.element || 'normal';
+        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, defEl);
+        this._damageNinja(false, adjDmg);
+        this._showMultiplierText(mult, 0, col);
         if (poison) this.cpuNinja.poison += poison;
         if (pushback) { const dir = this.cpuNinja.col <= 1 ? 1 : -1; this.moveCpu(dir); }
         this.cpuNinja.stunTimer = 600;
+        this._applyElementOnHit(atkEl, isPlayer, 0, col);
         hitRow = 0;
       }
     } else {
       if (this.grid[2][col]) {
-        this._damageSummon(2, col, dmg);
+        const defEl = this.grid[2][col].element || 'normal';
+        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, defEl);
+        this._damageSummon(2, col, adjDmg);
+        this._showMultiplierText(mult, 2, col);
         if (this.grid[2][col]) this.grid[2][col].stunTimer = 600;
+        this._applyElementOnHit(atkEl, false, 2, col);
         hitRow = 2;
       } else if (col === this.playerNinja.col) {
-        this._damageNinja(true, dmg);
+        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, 'normal');
+        this._damageNinja(true, adjDmg);
+        this._showMultiplierText(mult, 3, col);
         if (poison) this.playerNinja.poison += poison;
         if (pushback) { const dir = this.playerNinja.col <= 1 ? 1 : -1; this.movePlayer(dir); }
         this.playerNinja.stunTimer = 600;
+        this._applyElementOnHit(atkEl, false, 3, col);
         hitRow = 3;
       }
     }
@@ -606,11 +702,15 @@ class Game {
         this._spawnText('Speed!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
         break;
       case 'aoe': {
-        // Damage all enemy summons
+        // Damage all enemy summons (element-aware)
         const row = isPlayer ? 1 : 2;
+        const atkEl = card.element || 'normal';
         for (let c = 0; c < 4; c++) {
           if (this.grid[row][c]) {
-            this._damageSummon(row, c, card.value);
+            const defEl = this.grid[row][c].element || 'normal';
+            const { dmg, mult } = this._applyElementDamage(card.value, atkEl, defEl);
+            this._damageSummon(row, c, dmg);
+            this._showMultiplierText(mult, row, c);
           }
         }
         this._spawnText('⚡AOE ' + card.value, isPlayer ? 2 : 1, 1.5, '#f5a623');
@@ -633,6 +733,7 @@ class Game {
       isPlayer: isPlayer,
       id: card.id,
       sticker: card.sticker,
+      element: card.element || 'normal',
       stunTimer: 0
     };
     // Spawn pop-in animation
@@ -642,19 +743,21 @@ class Game {
 
   // ── Equipment: attack or block ─────────────────────────────
   _executeEquipment(card, col, isPlayer) {
+    const element = card.element || 'normal';
     if (card.damage) {
       const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
       let dmg = card.damage;
       if (ninja.boost > 0) { dmg += ninja.boost; ninja.boost = 0; }
       if (card.melee) {
-        this._executeMeleeHit(dmg, col, isPlayer, 0, card.pushback || false);
+        this._executeMeleeHit(dmg, col, isPlayer, 0, card.pushback || false, element);
       } else {
         this.projectiles.push({
           col: col, y: isPlayer ? 3 : 0,
           dir: isPlayer ? -1 : 1,
           damage: dmg, isPlayer: isPlayer,
           speed: 5, poison: 0,
-          pushback: card.pushback || false
+          pushback: card.pushback || false,
+          element: element
         });
       }
     }
@@ -686,23 +789,30 @@ class Game {
     for (let i = 0; i < this.projectiles.length; i++) {
       const p = this.projectiles[i];
       p.y += p.dir * p.speed * (dt / 1000);
+      const pEl = p.element || 'normal';
 
       // Check hits
       if (p.isPlayer && p.dir === -1) {
         // Player projectile going up
         // Check CPU summon row (1)
         if (p.y <= 1.5 && p.y > 0.5 && this.grid[1][p.col]) {
-          this._damageSummon(1, p.col, p.damage);
-          if (p.poison) {
-            this._damageSummon(1, p.col, p.poison);
-          }
+          const defEl = this.grid[1][p.col].element || 'normal';
+          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, defEl);
+          this._damageSummon(1, p.col, dmg);
+          this._showMultiplierText(mult, 1, p.col);
+          this._applyElementOnHit(pEl, true, 1, p.col);
+          if (p.poison) this._damageSummon(1, p.col, p.poison);
           if (p.areaEffect) this._spawnTileEffect(p.areaEffect, 1, p.col);
           toRemove.push(i);
           continue;
         }
         // Check CPU ninja (row 0)
         if (p.y <= 0.5 && p.col === this.cpuNinja.col) {
-          this._damageNinja(false, p.damage);
+          const defEl = this.enemyData.element || 'normal';
+          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, defEl);
+          this._damageNinja(false, dmg);
+          this._showMultiplierText(mult, 0, p.col);
+          this._applyElementOnHit(pEl, true, 0, p.col);
           if (p.poison) this.cpuNinja.poison += p.poison;
           if (p.pushback) {
             const dir = this.cpuNinja.col <= 1 ? 1 : -1;
@@ -718,7 +828,11 @@ class Game {
         // CPU projectile going down
         // Check player summon row (2)
         if (p.y >= 1.5 && p.y < 2.5 && this.grid[2][p.col]) {
-          this._damageSummon(2, p.col, p.damage);
+          const defEl = this.grid[2][p.col].element || 'normal';
+          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, defEl);
+          this._damageSummon(2, p.col, dmg);
+          this._showMultiplierText(mult, 2, p.col);
+          this._applyElementOnHit(pEl, false, 2, p.col);
           if (p.poison) this._damageSummon(2, p.col, p.poison);
           if (p.areaEffect) this._spawnTileEffect(p.areaEffect, 2, p.col);
           toRemove.push(i);
@@ -726,7 +840,10 @@ class Game {
         }
         // Check player ninja (row 3)
         if (p.y >= 2.5 && p.col === this.playerNinja.col) {
-          this._damageNinja(true, p.damage);
+          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, 'normal');
+          this._damageNinja(true, dmg);
+          this._showMultiplierText(mult, 3, p.col);
+          this._applyElementOnHit(pEl, false, 3, p.col);
           if (p.poison) this.playerNinja.poison += p.poison;
           if (p.pushback) {
             const dir = this.playerNinja.col <= 1 ? 1 : -1;
@@ -757,20 +874,36 @@ class Game {
         s.atkTimer -= dt;
         if (s.atkTimer <= 0) {
           s.atkTimer = s.atkSpeed;
+          const atkEl = s.element || 'normal';
           // Attack forward
           if (s.isPlayer) {
             // Player summon attacks upward in same column
             if (this.grid[1][c] && !this.grid[1][c].isPlayer) {
-              this._damageSummon(1, c, s.atk);
+              const defEl = this.grid[1][c].element || 'normal';
+              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, defEl);
+              this._damageSummon(1, c, dmg);
+              this._showMultiplierText(mult, 1, c);
+              this._applyElementOnHit(atkEl, true, 1, c);
             } else if (c === this.cpuNinja.col) {
-              this._damageNinja(false, s.atk);
+              const defEl = this.enemyData.element || 'normal';
+              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, defEl);
+              this._damageNinja(false, dmg);
+              this._showMultiplierText(mult, 0, c);
+              this._applyElementOnHit(atkEl, true, 0, c);
             }
           } else {
             // CPU summon attacks downward
             if (this.grid[2][c] && this.grid[2][c].isPlayer) {
-              this._damageSummon(2, c, s.atk);
+              const defEl = this.grid[2][c].element || 'normal';
+              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, defEl);
+              this._damageSummon(2, c, dmg);
+              this._showMultiplierText(mult, 2, c);
+              this._applyElementOnHit(atkEl, false, 2, c);
             } else if (c === this.playerNinja.col) {
-              this._damageNinja(true, s.atk);
+              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, 'normal');
+              this._damageNinja(true, dmg);
+              this._showMultiplierText(mult, 3, c);
+              this._applyElementOnHit(atkEl, false, 3, c);
             }
           }
         }
@@ -957,10 +1090,11 @@ class Game {
           const hpPct = Math.max(0, summon.hp / summon.maxHp * 100);
           const hpColor = hpPct <= 25 ? '#e74c3c' : hpPct <= 50 ? '#f5a623' : 'var(--green)';
           if (hpPct <= 25) cell.classList.add('near-death');
+          const sElIcon = elementIcon(summon.element || 'normal');
           cell.innerHTML = `
             <div class="summon-sticker">${summon.sticker}</div>
             <div class="summon-hp-bar"><div class="summon-hp-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
-            <div class="summon-stats">♥${summon.hp} ⚔${summon.atk}</div>
+            <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk}</div>
           `;
         }
 
@@ -1014,16 +1148,26 @@ class Game {
       } else if (s.card) {
         const card = s.card;
         const typeColor = cardColor(card.type);
+        const elIcon = elementIcon(card.element || 'normal');
+        const elColor = elementColor(card.element || 'normal');
         el.className = 'hand-slot has-card';
         el.style.borderColor = typeColor;
 
         let statsHtml = '';
-        if (card.type === 'attack')    statsHtml = `<div class="card-stat atk">⚔ ${card.damage} DMG</div>`;
-        if (card.type === 'item')      statsHtml = `<div class="card-stat itm">${card.description}</div>`;
-        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum">♥${card.hp} ⚔${card.atk}</div>`;
+        if (card.type === 'attack')    statsHtml = `<div class="card-stat atk"><span class="stat-big">⚔${card.damage}</span></div>`;
+        if (card.type === 'item') {
+          if (card.effect === 'heal')        statsHtml = `<div class="card-stat itm"><span class="stat-big">💚+${card.value}</span></div>`;
+          else if (card.effect === 'shield') statsHtml = `<div class="card-stat itm"><span class="stat-big">🛡️${card.value}</span></div>`;
+          else if (card.effect === 'dodge')  statsHtml = `<div class="card-stat itm"><span class="stat-big">💨</span></div>`;
+          else if (card.effect === 'boost')  statsHtml = `<div class="card-stat itm"><span class="stat-big">⚔+${card.value}</span></div>`;
+          else if (card.effect === 'speed')  statsHtml = `<div class="card-stat itm"><span class="stat-big">🏃</span></div>`;
+          else if (card.effect === 'aoe')    statsHtml = `<div class="card-stat itm"><span class="stat-big">⚡${card.value}</span></div>`;
+          else statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.description}</span></div>`;
+        }
+        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span></div>`;
         if (card.type === 'equipment') {
-          statsHtml = `<div class="card-stat eq">${card.damage ? '⚔'+card.damage : card.description}</div>`;
-          statsHtml += `<div class="card-uses">${s.usesLeft}/${card.uses} uses</div>`;
+          const mainStat = card.damage ? `⚔${card.damage}` : `🛡️${card.value}`;
+          statsHtml = `<div class="card-stat eq"><span class="stat-big">${mainStat}</span><span class="stat-uses">×${s.usesLeft}</span></div>`;
         }
 
         let cdOverlay = '';
@@ -1035,11 +1179,11 @@ class Game {
 
         inner.innerHTML = `
           ${cdOverlay}
-          <div class="card-type-badge" style="background:${typeColor}">${card.type.toUpperCase()}</div>
-          <div class="card-art" data-card-id="${card.id}">
-            <span class="sticker">${card.sticker}</span>
-            <span class="card-key-big">${keys[i]}</span>
+          <div class="card-header-row">
+            <span class="card-type-badge" style="background:${typeColor}">${card.type.toUpperCase()}</span>
+            <span class="card-elem-badge" style="background:${elColor}">${elIcon}</span>
           </div>
+          <div class="card-sticker-big">${card.sticker}</div>
           <div class="card-title">${card.name}</div>
           ${statsHtml}
         `;
@@ -1182,9 +1326,11 @@ class Game {
       rewardHtml = `<div class="reward-section"><h3>🎁 Card Drops:</h3><div class="reward-cards">${
         rewardIds.map(id => {
           const c = CARD_DB[id];
+          const rElIcon = elementIcon(c.element || 'normal');
+          const rElColor = elementColor(c.element || 'normal');
           return `<div class="reward-card" style="border-color:${cardColor(c.type)}">
-            <div class="card-type-badge" style="background:${cardColor(c.type)}">${c.type.toUpperCase()}</div>
-            <div class="card-art small" data-card-id="${id}"><span class="sticker">${c.sticker}</span></div>
+            <div class="card-header-row"><span class="card-type-badge" style="background:${cardColor(c.type)}">${c.type.toUpperCase()}</span><span class="card-elem-badge" style="background:${rElColor}">${rElIcon}</span></div>
+            <div class="reward-sticker">${c.sticker}</div>
             <div class="card-title">${c.name}</div>
             <div class="reward-rarity" style="color:${rarityColor(c.rarity)}">${c.rarity.replace('_',' ').toUpperCase()}</div>
           </div>`;
