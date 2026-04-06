@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EleNin CCG</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══ MAIN MENU ═══ -->
+    <div id="screen-menu" class="screen">
+      <div class="menu-center">
+        <h1 class="game-title">⚔️ EleNin CCG ⚔️</h1>
+        <p class="subtitle">Elemental Ninja Card Game</p>
+        <div class="menu-buttons">
+          <button id="btn-play" class="big-btn play-btn">▶ Play</button>
+          <button id="btn-deck" class="big-btn deck-btn">🃏 Deck Editor</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CHAPTER SELECT ═══ -->
+    <div id="screen-chapters" class="screen hidden">
+      <h2 class="screen-title">Select Chapter</h2>
+      <div id="chapter-list" class="chapter-list"></div>
+      <button id="btn-back-menu" class="back-btn">← Back</button>
+    </div>
+
+    <!-- ═══ ENEMY SELECT ═══ -->
+    <div id="screen-enemies" class="screen hidden">
+      <h2 class="screen-title" id="chapter-title"></h2>
+      <div id="enemy-list" class="enemy-list"></div>
+      <button id="btn-back-chapters" class="back-btn">← Back</button>
+    </div>
+
+    <!-- ═══ DECK EDITOR ═══ -->
+    <div id="screen-deck" class="screen hidden">
+      <h2 class="screen-title">🃏 Deck Editor</h2>
+      <div id="deck-editor" class="deck-editor"></div>
+      <button id="btn-back-menu2" class="back-btn">← Back</button>
+    </div>
+
+    <!-- ═══ GAME SCREEN ═══ -->
+    <div id="screen-game" class="screen hidden"></div>
+
+  </div>
+
+  <!-- Scripts (order matters) -->
+  <script src="js/cards.js"></script>
+  <script src="js/storage.js"></script>
+  <script src="js/cpu.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/deck.js"></script>
+  <script src="js/menu.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

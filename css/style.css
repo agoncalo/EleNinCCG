@@ -1,0 +1,561 @@
+/* ============================================================
+   style.css — EleNin CCG full styling
+   ============================================================ */
+
+/* ── Reset & Globals ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0d1117;
+  --bg-card:    #161b22;
+  --bg-panel:   #1c2129;
+  --border:     #30363d;
+  --text:       #e6edf3;
+  --text-dim:   #8b949e;
+  --accent:     #58a6ff;
+  --red:        #e94560;
+  --green:      #2ecc71;
+  --blue:       #3498db;
+  --gold:       #f5a623;
+  --player:     #58a6ff;
+  --enemy:      #e94560;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  overflow: hidden;
+}
+
+#app { height: 100vh; display: flex; flex-direction: column; }
+.screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+.hidden { display: none !important; }
+
+/* ── Main Menu ────────────────────────────────────────────── */
+.menu-center { text-align: center; }
+.game-title { font-size: 3rem; margin-bottom: 0.2em; text-shadow: 0 0 20px rgba(88,166,255,0.5); }
+.subtitle { color: var(--text-dim); margin-bottom: 2em; font-size: 1.1rem; }
+.menu-buttons { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.big-btn {
+  width: 260px; padding: 16px 0; font-size: 1.25rem; border: 2px solid var(--border);
+  border-radius: 12px; cursor: pointer; color: var(--text); background: var(--bg-card);
+  transition: all 0.2s;
+}
+.big-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+.play-btn { border-color: var(--green); }
+.play-btn:hover { background: rgba(46,204,113,0.15); }
+.deck-btn { border-color: var(--accent); }
+.deck-btn:hover { background: rgba(88,166,255,0.15); }
+
+.back-btn {
+  position: fixed; bottom: 20px; left: 20px;
+  padding: 10px 24px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text); cursor: pointer; font-size: 1rem;
+  z-index: 100;
+}
+.back-btn:hover { background: var(--bg-panel); }
+
+.screen-title { margin-bottom: 20px; font-size: 1.6rem; }
+
+/* ── Chapter Select ───────────────────────────────────────── */
+.chapter-list { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.chapter-card {
+  width: 140px; height: 160px; background: var(--bg-card); border: 2px solid var(--border);
+  border-radius: 12px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; cursor: pointer; transition: all 0.2s; position: relative;
+}
+.chapter-card:hover:not(.locked) { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+.chapter-card.locked { opacity: 0.4; cursor: default; }
+.chapter-icon { font-size: 2.2rem; margin-bottom: 6px; }
+.chapter-name { font-size: 1rem; font-weight: 600; }
+.chapter-progress { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+.lock-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; background: rgba(0,0,0,0.5); border-radius: 12px; }
+
+/* ── Enemy Select ─────────────────────────────────────────── */
+.enemy-list { display: flex; flex-direction: column; gap: 16px; align-items: center; }
+.enemy-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.boss-row  { display: flex; justify-content: center; }
+.enemy-card {
+  width: 120px; height: 150px; background: var(--bg-card); border: 2px solid var(--border);
+  border-radius: 10px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; cursor: pointer; position: relative; transition: all 0.2s;
+}
+.enemy-card:hover:not(.locked) { transform: translateY(-3px); border-color: var(--accent); }
+.enemy-card.locked { opacity: 0.4; cursor: default; }
+.enemy-card.defeated { border-color: var(--green); }
+.boss-card { width: 140px; height: 170px; border-color: var(--gold); }
+.boss-card:hover:not(.locked) { border-color: var(--gold); box-shadow: 0 0 16px rgba(245,166,35,0.3); }
+.enemy-portrait { font-size: 2rem; margin-bottom: 4px; }
+.boss-portrait { font-size: 2.6rem; }
+.enemy-name { font-size: 0.85rem; font-weight: 600; text-align: center; }
+.enemy-hp { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; }
+.check-mark { position: absolute; top: 6px; right: 8px; color: var(--green); font-size: 1.2rem; }
+
+/* ── Reward Section ───────────────────────────────────────── */
+.reward-section { margin: 16px 0; }
+.reward-section h3 { margin-bottom: 10px; color: var(--gold); }
+.reward-cards { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.reward-card {
+  width: 120px; padding: 10px 8px; background: var(--bg-card); border: 2px solid var(--border);
+  border-radius: 8px; text-align: center;
+}
+.card-desc { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+
+/* ── Deck Editor ──────────────────────────────────────────── */
+.deck-editor { display: flex; gap: 20px; width: 100%; max-width: 1100px; height: calc(100vh - 120px); }
+#collection-panel { flex: 2; display: flex; flex-direction: column; min-width: 0; }
+#deck-panel { flex: 1; display: flex; flex-direction: column; min-width: 240px; background: var(--bg-panel); border-radius: 12px; padding: 14px; }
+
+.filter-bar { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.filter-btn {
+  padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg-card); color: var(--text); cursor: pointer;
+  font-size: 0.8rem;
+}
+.filter-btn.active { background: var(--bg-panel); border-color: var(--accent); }
+
+.collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; overflow-y: auto; flex: 1; padding-right: 4px; }
+.col-card {
+  padding: 10px 8px; background: var(--bg-card); border: 2px solid var(--border);
+  border-radius: 8px; cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.col-card:hover:not(.maxed) { transform: translateY(-2px); box-shadow: 0 3px 12px rgba(0,0,0,0.4); }
+.col-card.maxed { opacity: 0.45; cursor: default; }
+.col-card-type { font-size: 0.6rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; display: inline-block; margin-bottom: 4px; }
+.col-card-name { font-size: 0.85rem; font-weight: 600; }
+.col-card-stats { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
+.col-card-count { font-size: 0.75rem; color: var(--accent); margin-top: 4px; }
+
+.deck-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.deck-header h3 { font-size: 1rem; }
+.deck-hint { font-size: 0.7rem; color: var(--text-dim); }
+.deck-list { flex: 1; overflow-y: auto; }
+.deck-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; margin-bottom: 4px;
+  background: var(--bg-card); border-radius: 6px;
+}
+.deck-row-name { flex: 1; font-size: 0.85rem; }
+.deck-row-count { font-size: 0.8rem; color: var(--text-dim); }
+.deck-row-remove {
+  width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg); color: var(--red); cursor: pointer; font-size: 1.1rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.deck-row-remove:hover { background: rgba(233,69,96,0.2); }
+
+.deck-save-btn, .deck-clear-btn {
+  width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; font-size: 0.95rem; margin-top: 8px;
+}
+.deck-save-btn  { background: rgba(46,204,113,0.2); border-color: var(--green); }
+.deck-save-btn:hover { background: rgba(46,204,113,0.35); }
+.deck-clear-btn { background: rgba(233,69,96,0.15); border-color: var(--red); }
+.deck-clear-btn:hover { background: rgba(233,69,96,0.3); }
+
+/* ══════════════════════════════════════════════════════════════
+   GAME SCREEN
+   ══════════════════════════════════════════════════════════════ */
+#screen-game { padding: 0; position: relative; }
+#game-wrap {
+  width: 100%; max-width: 600px; display: flex; flex-direction: column;
+  align-items: center; gap: 8px; padding: 10px 10px 6px;
+  position: relative; margin: auto;
+}
+
+/* ── Info bars ────────────────────────────────────────────── */
+.info-bar {
+  width: 100%; display: flex; align-items: center; gap: 10px;
+  padding: 6px 12px; background: var(--bg-card); border-radius: 8px;
+}
+.ninja-label { font-weight: 700; font-size: 0.9rem; min-width: 90px; }
+.player-color { color: var(--player); }
+.enemy-color  { color: var(--enemy); }
+.hp-wrap { flex: 1; position: relative; height: 22px; background: #222; border-radius: 6px; overflow: hidden; }
+.hp-bar {
+  display: block; height: 100%; border-radius: 6px; transition: width 0.3s ease;
+}
+.player-hp { background: var(--player); }
+.enemy-hp  { background: var(--enemy); }
+.hp-bar.low { background: #e67e22; animation: pulse-hp 0.8s ease-in-out infinite alternate; }
+.hp-bar.critical { background: #e74c3c; animation: pulse-hp-crit 0.4s ease-in-out infinite alternate; }
+@keyframes pulse-hp { to { opacity: 0.6; } }
+@keyframes pulse-hp-crit { 0% { opacity: 1; filter: brightness(1); } 100% { opacity: 0.5; filter: brightness(1.5); } }
+
+/* HP damage/heal flash */
+.hp-flash-dmg { animation: hp-dmg-flash 0.35s ease-out !important; }
+.hp-flash-heal { animation: hp-heal-flash 0.4s ease-out !important; }
+@keyframes hp-dmg-flash {
+  0%  { filter: brightness(1); box-shadow: none; }
+  20% { filter: brightness(2); background: #e67e22; box-shadow: 0 0 12px rgba(230,126,34,0.8); }
+  100% { filter: brightness(1); box-shadow: none; }
+}
+@keyframes hp-heal-flash {
+  0%  { filter: brightness(1); box-shadow: none; }
+  30% { filter: brightness(1.6); background: #55efc4; box-shadow: 0 0 12px rgba(85,239,196,0.7); }
+  100% { filter: brightness(1); box-shadow: none; }
+}
+
+.hp-text { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; text-shadow: 0 1px 3px #000; }
+.deck-count { font-size: 0.85rem; color: var(--text-dim); }
+
+/* ── Grid ─────────────────────────────────────────────────── */
+#game-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr);
+  gap: 4px; width: 100%; aspect-ratio: 1 / 1; max-height: 50vh;
+  background: var(--bg-panel); border-radius: 10px; padding: 4px;
+  position: relative;
+}
+.grid-cell {
+  background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 0.7rem; position: relative; overflow: hidden; min-height: 0;
+}
+.cpu-zone    { background: rgba(233,69,96,0.05); }
+.player-zone { background: rgba(88,166,255,0.05); }
+
+/* Ninja cells */
+.ninja-cell { border: 2px solid transparent; }
+.player-ninja { border-color: var(--player); background: rgba(88,166,255,0.1); animation: ninja-glow-p 1.5s ease-in-out infinite alternate; }
+.enemy-ninja  { border-color: var(--enemy);  background: rgba(233,69,96,0.1);  animation: ninja-glow-e 1.5s ease-in-out infinite alternate; }
+@keyframes ninja-glow-p { to { box-shadow: inset 0 0 12px rgba(88,166,255,0.25); } }
+@keyframes ninja-glow-e { to { box-shadow: inset 0 0 12px rgba(233,69,96,0.25); } }
+.ninja-icon { font-size: 1.8rem; display: inline-block; }
+
+/* Near-death glow */
+.near-death { animation: near-death-pulse 0.5s ease-in-out infinite alternate !important; }
+@keyframes near-death-pulse {
+  from { box-shadow: inset 0 0 8px rgba(231,76,60,0.4), 0 0 6px rgba(231,76,60,0.3); }
+  to   { box-shadow: inset 0 0 18px rgba(231,76,60,0.7), 0 0 14px rgba(231,76,60,0.5); filter: brightness(1.15); }
+}
+
+/* Grid shake on player ninja hit */
+.grid-shake { animation: grid-shake 0.25s ease-out; }
+@keyframes grid-shake {
+  0%  { transform: translate(0, 0); }
+  15% { transform: translate(-3px, 2px); }
+  30% { transform: translate(3px, -2px); }
+  45% { transform: translate(-2px, -1px); }
+  60% { transform: translate(2px, 1px); }
+  75% { transform: translate(-1px, 1px); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Sprite-level hit recoil + white flash (applied to .ninja-icon / .summon-sticker) */
+.sprite-hit { animation: sprite-hit 0.3s ease-out; }
+@keyframes sprite-hit {
+  0%   { transform: translate(0,0) scale(1); filter: brightness(1) saturate(1); text-shadow: none; }
+  10%  { transform: translate(0,0) scale(1); filter: brightness(5) saturate(0); text-shadow: 0 0 12px #fff, 0 0 24px #fff; }
+  25%  { transform: translate(-3px, 2px) scale(0.9); filter: brightness(3) saturate(0.3); text-shadow: 0 0 8px #fff; }
+  45%  { transform: translate(3px, -1px) scale(0.95); filter: brightness(1.2) saturate(1); text-shadow: none; }
+  100% { transform: translate(0,0) scale(1); filter: brightness(1) saturate(1); text-shadow: none; }
+}
+
+/* White flash overlay on the cell itself when hit */
+.grid-cell { transition: background 0.15s; }
+.hit-flash { background: rgba(255,255,255,0.35) !important; }
+
+/* Sprite-level attack lunge */
+.sprite-atk { animation: sprite-atk 0.25s ease-out; }
+@keyframes sprite-atk {
+  0%   { transform: scale(1) translateY(0); }
+  25%  { transform: scale(1.2) translateY(-4px); }
+  50%  { transform: scale(0.9) translateY(2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+/* Sprite-level heal pulse */
+.sprite-heal { animation: sprite-heal 0.45s ease-out; }
+@keyframes sprite-heal {
+  0%   { filter: brightness(1); transform: scale(1); }
+  30%  { filter: brightness(1.8) drop-shadow(0 0 8px #2ecc71); transform: scale(1.15); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+
+/* Sprite-level shield flash */
+.sprite-shield { animation: sprite-shield 0.35s ease-out; }
+@keyframes sprite-shield {
+  0%   { filter: brightness(1); transform: scale(1); }
+  30%  { filter: brightness(1.6) drop-shadow(0 0 8px #3498db); transform: scale(1.1); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+
+/* Sprite-level spawn pop-in */
+.sprite-spawn { animation: sprite-spawn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes sprite-spawn {
+  0%   { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Damage vignette flash on game wrap */
+.dmg-vignette { animation: dmg-vignette 0.35s ease-out; }
+@keyframes dmg-vignette {
+  0%   { box-shadow: inset 0 0 0 0 transparent; }
+  25%  { box-shadow: inset 0 0 40px 8px rgba(231,76,60,0.45); }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
+}
+
+/* Heal vignette flash on game wrap */
+.heal-vignette { animation: heal-vignette 0.4s ease-out; }
+@keyframes heal-vignette {
+  0%   { box-shadow: inset 0 0 0 0 transparent; }
+  30%  { box-shadow: inset 0 0 30px 6px rgba(46,204,113,0.35); }
+  100% { box-shadow: inset 0 0 0 0 transparent; }
+}
+
+.status-icon { font-size: 0.6rem; position: absolute; padding: 1px 3px; border-radius: 3px; background: rgba(0,0,0,0.6); }
+.shield-icon { top: 2px; left: 2px; }
+.poison-icon { top: 2px; right: 2px; }
+.boost-icon  { bottom: 2px; left: 2px; }
+.dodge-icon  { bottom: 2px; right: 2px; }
+
+/* Summons */
+.summon-cell { padding: 2px; }
+.player-summon { border: 1px solid rgba(88,166,255,0.4); background: rgba(88,166,255,0.08); }
+.enemy-summon  { border: 1px solid rgba(233,69,96,0.4);  background: rgba(233,69,96,0.08); }
+.summon-name { font-size: 0.65rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.summon-hp-bar { width: 90%; height: 4px; background: #333; border-radius: 2px; margin: 1px 0; }
+.summon-hp-fill { height: 100%; background: var(--green); border-radius: 2px; transition: width 0.2s; }
+.summon-stats { font-size: 0.7rem; color: var(--text); font-weight: 600; }
+
+/* ── Projectile layer ─────────────────────────────────────── */
+#proj-layer {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 10;
+}
+.projectile { position: absolute; font-size: 1rem; transition: none; }
+
+/* ── Floating text layer ──────────────────────────────────── */
+#ft-layer {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 20;
+}
+.floating-text {
+  position: absolute; font-size: 0.9rem; font-weight: 700;
+  text-shadow: 0 1px 4px #000; transform: translateX(-50%);
+}
+
+/* ── Hand area ────────────────────────────────────────────── */
+#hand-area {
+  width: 100%; display: flex; gap: 8px; justify-content: center;
+}
+.hand-slot {
+  flex: 1; max-width: 180px; min-height: 120px; background: var(--bg-card);
+  border: 2px solid var(--border); border-radius: 10px; padding: 6px;
+  position: relative; overflow: hidden; transition: border-color 0.2s;
+}
+.hand-slot.has-card:hover { transform: translateY(-3px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+.hand-slot.on-cooldown { opacity: 0.6; }
+.hand-key {
+  position: absolute; top: 4px; right: 6px; font-size: 0.7rem; font-weight: 800;
+  color: var(--text-dim); background: rgba(0,0,0,0.4); padding: 1px 6px; border-radius: 4px;
+  z-index: 2;
+}
+.hand-card-inner { position: relative; height: 100%; }
+.card-type-badge { font-size: 0.55rem; font-weight: 700; padding: 1px 6px; border-radius: 3px; color: #fff; display: inline-block; margin-bottom: 2px; }
+/* Card art placeholder — sticker + big key until real art is added.
+   Place images in /img/cards/{card-id}.png and swap via JS or CSS background-image. */
+.card-art {
+  width: 100%; aspect-ratio: 4 / 3; background: var(--bg-panel); border: 1px dashed var(--border);
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  margin-bottom: 2px; overflow: hidden; position: relative;
+}
+.card-art.small { aspect-ratio: 3 / 2; }
+.card-art .sticker, .card-art.small .sticker {
+  position: absolute; opacity: 0.25;
+}
+.card-art .sticker { font-size: 2.4rem; }
+.card-art.small .sticker { font-size: 1.6rem; }
+.card-art .card-key-big {
+  font-size: 2.2rem; font-weight: 900; color: #fff; z-index: 1;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.9), 0 0 24px rgba(88,166,255,0.35);
+  letter-spacing: 3px;
+}
+
+.summon-sticker {
+  font-size: 1.5rem; line-height: 1; text-align: center; display: inline-block;
+}
+
+.card-title { font-size: 0.72rem; font-weight: 700; margin-bottom: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.card-stat { font-size: 0.9rem; color: var(--text); font-weight: 700; }
+.card-uses { font-size: 0.75rem; color: var(--gold); margin-top: 1px; font-weight: 600; }
+.reward-rarity { font-size: 0.65rem; font-weight: 700; margin-top: 2px; text-transform: uppercase; }
+.col-card-rarity { font-size: 0.6rem; font-weight: 600; margin-top: 1px; text-transform: capitalize; }
+
+/* Drawing animation */
+.hand-slot.drawing .hand-card-inner { display: flex; align-items: center; justify-content: center; }
+.draw-progress { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--accent); border-radius: 2px; transition: width 0.1s; }
+.draw-label { font-size: 0.75rem; color: var(--text-dim); }
+
+/* Clock spinner for redraw */
+.draw-clock {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid var(--accent); position: relative;
+  margin: 0 auto;
+}
+.clock-hand {
+  position: absolute; bottom: 50%; left: calc(50% - 1px);
+  width: 2px; height: 40%; background: var(--accent);
+  transform-origin: bottom center; border-radius: 1px;
+  transition: transform 0.1s linear;
+}
+
+.hand-slot.empty-slot .hand-card-inner { display: flex; align-items: center; justify-content: center; }
+
+/* Equipment cooldown overlay */
+.cd-overlay { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(0,0,0,0.55); z-index: 1; transition: height 0.1s; }
+.cd-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; color: var(--gold); z-index: 2; }
+
+/* Controls hint */
+#controls-hint { font-size: 0.7rem; color: var(--text-dim); margin-top: 4px; }
+
+/* ── Game result overlay ──────────────────────────────────── */
+#game-result-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,0.8);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.result-box {
+  background: var(--bg-card); border-radius: 16px; padding: 30px 40px;
+  text-align: center; max-width: 460px; border: 2px solid var(--border);
+}
+.result-box.win  { border-color: var(--gold); }
+.result-box.lose { border-color: var(--red); }
+.result-box h2 { font-size: 2rem; margin-bottom: 16px; }
+.result-box.win h2  { color: var(--gold); }
+.result-box.lose h2 { color: var(--red); }
+.result-buttons { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
+.result-buttons button {
+  padding: 10px 28px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-panel); color: var(--text); cursor: pointer; font-size: 1rem;
+}
+.result-buttons button:hover { background: var(--bg-card); }
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .deck-editor { flex-direction: column; }
+  #deck-panel { min-height: 200px; }
+  .game-title { font-size: 2rem; }
+}
+
+/* ── Slash Arc effect ─────────────────────────────────────── */
+.slash-arc {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.slash-arc::before {
+  content: '';
+  position: absolute;
+  width: 80%;
+  height: 80%;
+  top: 10%;
+  left: 10%;
+  border: 3px solid transparent;
+  border-top: 3px solid #fff;
+  border-right: 3px solid rgba(255,255,255,0.5);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,0.8)) drop-shadow(0 0 12px rgba(88,166,255,0.6));
+  animation: slash-sweep 0.35s ease-out forwards;
+}
+@keyframes slash-sweep {
+  0%   { transform: rotate(-60deg) scale(0.4); opacity: 1; }
+  60%  { transform: rotate(90deg) scale(1); opacity: 0.8; }
+  100% { transform: rotate(160deg) scale(1.2); opacity: 0; }
+}
+
+/* ── Stun flash ───────────────────────────────────────────── */
+.stunned {
+  animation: stun-flash 0.12s linear infinite alternate !important;
+}
+@keyframes stun-flash {
+  from { filter: brightness(1); }
+  to   { filter: brightness(3) saturate(0); }
+}
+
+/* ── Tile Effects ─────────────────────────────────────────── */
+.tile-burn {
+  background: rgba(255, 80, 20, 0.25) !important;
+  box-shadow: inset 0 0 16px rgba(255, 100, 0, 0.5);
+  animation: burn-flicker 0.4s ease-in-out infinite alternate;
+}
+.tile-burn::after {
+  content: '🔥';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes burn-flicker {
+  from { background: rgba(255, 80, 20, 0.2); }
+  to   { background: rgba(255, 120, 30, 0.35); }
+}
+
+.tile-poison {
+  background: rgba(130, 40, 200, 0.2) !important;
+  box-shadow: inset 0 0 14px rgba(155, 89, 182, 0.45);
+  animation: poison-bubble 1s ease-in-out infinite alternate;
+}
+.tile-poison::after {
+  content: '☠️';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  pointer-events: none;
+}
+@keyframes poison-bubble {
+  from { box-shadow: inset 0 0 10px rgba(155, 89, 182, 0.3); }
+  to   { box-shadow: inset 0 0 20px rgba(155, 89, 182, 0.6); }
+}
+
+.tile-ice {
+  background: rgba(135, 206, 235, 0.25) !important;
+  box-shadow: inset 0 0 14px rgba(135, 206, 235, 0.5);
+  animation: ice-shimmer 0.8s ease-in-out infinite alternate;
+}
+.tile-ice::after {
+  content: '❄️';
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  pointer-events: none;
+}
+@keyframes ice-shimmer {
+  from { background: rgba(135, 206, 235, 0.2); }
+  to   { background: rgba(180, 230, 255, 0.35); }
+}
+
+/* ── Deck overview (editor) ───────────────────────────────── */
+.deck-overview {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0;
+  font-size: 0.8rem;
+}
+.deck-ov-item {
+  flex: 1;
+  text-align: center;
+  padding: 4px;
+  border-radius: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.deck-ov-item.active {
+  border-color: var(--accent);
+  color: var(--text);
+}
