@@ -1304,14 +1304,17 @@ class Game {
     // Recycle DOM elements — clear and rebuild each frame (simple approach)
     this.el.projLayer.innerHTML = '';
     const gridRect = this.el.grid.getBoundingClientRect();
+    const wrapRect = this.el.wrap.getBoundingClientRect();
+    const offsetX = gridRect.left - wrapRect.left;
+    const offsetY = gridRect.top - wrapRect.top;
     const cellW = gridRect.width / 4;
     const cellH = gridRect.height / 4;
 
     for (const p of this.projectiles) {
       const div = document.createElement('div');
       div.className = 'projectile ' + (p.isPlayer ? 'proj-player' : 'proj-cpu');
-      div.style.left = (p.col * cellW + cellW / 2 - 8) + 'px';
-      div.style.top  = (p.y * cellH + cellH / 2 - 8) + 'px';
+      div.style.left = (offsetX + p.col * cellW + cellW / 2 - 8) + 'px';
+      div.style.top  = (offsetY + p.y * cellH + cellH / 2 - 8) + 'px';
       div.textContent = p.isPlayer ? '🔹' : '🔸';
       this.el.projLayer.appendChild(div);
     }
@@ -1320,6 +1323,9 @@ class Game {
   _renderFloatingTexts() {
     this.el.ftLayer.innerHTML = '';
     const gridRect = this.el.grid.getBoundingClientRect();
+    const wrapRect = this.el.wrap.getBoundingClientRect();
+    const offsetX = gridRect.left - wrapRect.left;
+    const offsetY = gridRect.top - wrapRect.top;
     const cellW = gridRect.width / 4;
     const cellH = gridRect.height / 4;
 
@@ -1327,8 +1333,8 @@ class Game {
       const div = document.createElement('div');
       div.className = 'floating-text';
       const progress = 1 - ft.life / ft.maxLife;
-      div.style.left    = (ft.col * cellW + cellW / 2) + 'px';
-      div.style.top     = (ft.row * cellH + cellH / 2 - progress * 40) + 'px';
+      div.style.left    = (offsetX + ft.col * cellW + cellW / 2) + 'px';
+      div.style.top     = (offsetY + ft.row * cellH + cellH / 2 - progress * 40) + 'px';
       div.style.opacity = 1 - progress;
       div.style.color   = ft.color;
       div.textContent   = ft.text;
