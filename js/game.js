@@ -189,9 +189,9 @@ class Game {
     `;
     wrap.appendChild(mobileControls);
 
-    // Mobile button handlers
-    document.getElementById('btn-move-left').addEventListener('click', () => this.movePlayer(-1));
-    document.getElementById('btn-move-right').addEventListener('click', () => this.movePlayer(1));
+    // Mobile button handlers (query within wrap since it's not in the DOM yet)
+    mobileControls.querySelector('#btn-move-left').addEventListener('click', () => this.movePlayer(-1));
+    mobileControls.querySelector('#btn-move-right').addEventListener('click', () => this.movePlayer(1));
 
     // Controls hint
     const hint = document.createElement('div');
