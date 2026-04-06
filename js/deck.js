@@ -111,7 +111,7 @@ const DeckEditor = {
       let statsLine = '';
       if (card.type === 'attack')    statsLine = `⚔${card.damage}`;
       if (card.type === 'item')      statsLine = card.description;
-      if (card.type === 'summon')    statsLine = `♥${card.hp} ⚔${card.atk}`;
+      if (card.type === 'summon')    statsLine = `♥${card.hp} ⚔${card.atk} 🏆${card.trophyPts || 1}`;
       if (card.type === 'equipment') statsLine = card.description;
 
       div.innerHTML = `

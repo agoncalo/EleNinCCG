@@ -71,6 +71,11 @@ class Game {
     // ── CPU AI ───────────────────────────────────────────────
     this.cpu = new CpuAI(this, enemyData.difficulty);
 
+    // ── Trophy system ────────────────────────────────────────
+    this.trophyLimit  = enemyData.trophyLimit || Math.round(10 + (enemyData.difficulty || 0.3) * 20);
+    this.trophyPlayer = 0;
+    this.trophyCpu    = 0;
+
     // ── DOM refs (set in buildDOM) ───────────────────────────
     this.el = {};
   }
@@ -123,6 +128,22 @@ class Game {
       <span class="deck-count" id="cpu-deck-count"></span>
     `;
     wrap.appendChild(cpuBar);
+
+    // Trophy bar
+    const trophyBar = document.createElement('div');
+    trophyBar.id = 'trophy-bar';
+    trophyBar.innerHTML = `
+      <div class="trophy-row">
+        <span class="trophy-label trophy-player">🏆 You: <span id="trophy-plr-count">0</span></span>
+        <div class="trophy-track"><div class="trophy-fill trophy-fill-player" id="trophy-fill-plr"></div></div>
+      </div>
+      <span class="trophy-goal" id="trophy-limit-label"></span>
+      <div class="trophy-row">
+        <div class="trophy-track"><div class="trophy-fill trophy-fill-cpu" id="trophy-fill-cpu"></div></div>
+        <span class="trophy-label trophy-cpu"><span id="trophy-cpu-count">0</span> :Enemy 🏆</span>
+      </div>
+    `;
+    wrap.appendChild(trophyBar);
 
     // Grid
     const gridDiv = document.createElement('div');
@@ -211,6 +232,11 @@ class Game {
     this.el.plrHpText = document.getElementById('plr-hp-text');
     this.el.cpuDeck   = document.getElementById('cpu-deck-count');
     this.el.plrDeck   = document.getElementById('plr-deck-count');
+    this.el.trophyPlr      = document.getElementById('trophy-plr-count');
+    this.el.trophyCpu      = document.getElementById('trophy-cpu-count');
+    this.el.trophyFillPlr  = document.getElementById('trophy-fill-plr');
+    this.el.trophyFillCpu  = document.getElementById('trophy-fill-cpu');
+    this.el.trophyLimitLbl = document.getElementById('trophy-limit-label');
     this.el.grid      = gridDiv;
     this.el.wrap      = wrap;
   }
@@ -315,6 +341,10 @@ class Game {
     // Win/lose check
     if (this.playerNinja.hp <= 0 && this.running) { this._endGame(false); }
     if (this.cpuNinja.hp   <= 0 && this.running) { this._endGame(true);  }
+
+    // Trophy win check — first to reach the limit wins
+    if (this.running && this.trophyPlayer >= this.trophyLimit) { this._endGame(true, 'trophy');  }
+    if (this.running && this.trophyCpu    >= this.trophyLimit) { this._endGame(false, 'trophy'); }
   }
 
   _updateHandSlots(hand, isPlayer, dt) {
@@ -734,6 +764,7 @@ class Game {
       id: card.id,
       sticker: card.sticker,
       element: card.element || 'normal',
+      trophyPts: card.trophyPts || 1,
       stunTimer: 0
     };
     // Spawn pop-in animation
@@ -964,6 +995,14 @@ class Game {
     hitCell.classList.add('hit-flash');
     setTimeout(() => hitCell.classList.remove('hit-flash'), 150);
     if (s.hp <= 0) {
+      // Award trophy points to the killer
+      const pts = (CARD_DB[s.id] && CARD_DB[s.id].trophyPts) || 1;
+      if (s.isPlayer) {
+        this.trophyCpu += pts;
+      } else {
+        this.trophyPlayer += pts;
+      }
+      this._spawnText('🏆+' + pts, row, col, '#f1c40f');
       this.grid[row][col] = null;
       this._spawnText('💥', row, col, '#f39c12');
     }
@@ -1050,6 +1089,7 @@ class Game {
     this._renderSlashArcs();
     this._renderHand();
     this._renderHP();
+    this._renderTrophy();
     this._renderDeckCount();
     this._renderProjectiles();
     this._renderFloatingTexts();
@@ -1094,7 +1134,7 @@ class Game {
           cell.innerHTML = `
             <div class="summon-sticker">${summon.sticker}</div>
             <div class="summon-hp-bar"><div class="summon-hp-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
-            <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk}</div>
+            <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk} 🏆${summon.trophyPts || 1}</div>
           `;
         }
 
@@ -1164,7 +1204,7 @@ class Game {
           else if (card.effect === 'aoe')    statsHtml = `<div class="card-stat itm"><span class="stat-big">⚡${card.value}</span></div>`;
           else statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.description}</span></div>`;
         }
-        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span></div>`;
+        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span><span class="stat-trophy">🏆${card.trophyPts || 1}</span></div>`;
         if (card.type === 'equipment') {
           const mainStat = card.damage ? `⚔${card.damage}` : `🛡️${card.value}`;
           statsHtml = `<div class="card-stat eq"><span class="stat-big">${mainStat}</span><span class="stat-uses">×${s.usesLeft}</span></div>`;
@@ -1244,6 +1284,15 @@ class Game {
     this.el.cpuHpBar.className = cpuClass;
   }
 
+  _renderTrophy() {
+    const limit = this.trophyLimit;
+    this.el.trophyPlr.textContent = this.trophyPlayer + '/' + limit;
+    this.el.trophyCpu.textContent = this.trophyCpu + '/' + limit;
+    this.el.trophyFillPlr.style.width = Math.min(100, this.trophyPlayer / limit * 100) + '%';
+    this.el.trophyFillCpu.style.width = Math.min(100, this.trophyCpu / limit * 100) + '%';
+    this.el.trophyLimitLbl.textContent = 'First to ' + limit;
+  }
+
   _renderDeckCount() {
     const plrTotal = this.playerDeckZ.length + this.playerDeckX.length + this.playerDeckC.length;
     const cpuTotal = this.cpuDeckZ.length + this.cpuDeckX.length + this.cpuDeckC.length;
@@ -1300,13 +1349,17 @@ class Game {
   // ════════════════════════════════════════════════════════════
   //  GAME END
   // ════════════════════════════════════════════════════════════
-  _endGame(playerWon) {
+  _endGame(playerWon, reason) {
     this.running = false;
     document.removeEventListener('keydown', this._boundKey);
 
     // Build result overlay
     const overlay = document.createElement('div');
     overlay.id = 'game-result-overlay';
+
+    const trophyStr = reason === 'trophy'
+      ? `<div class="trophy-result">🏆 Trophy Victory! (${playerWon ? this.trophyPlayer : this.trophyCpu}/${this.trophyLimit})</div>`
+      : '';
 
     let rewardHtml = '';
     if (playerWon) {
@@ -1341,6 +1394,7 @@ class Game {
     overlay.innerHTML = `
       <div class="result-box ${playerWon ? 'win' : 'lose'}">
         <h2>${playerWon ? '⚔️ VICTORY! ⚔️' : '💀 DEFEAT 💀'}</h2>
+        ${trophyStr}
         ${rewardHtml}
         <div class="result-buttons">
           <button id="btn-retry">Retry</button>
