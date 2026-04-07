@@ -60,7 +60,7 @@ const Multiplayer = {
     content.innerHTML = `
       <div class="mp-waiting">
         <div class="mp-setting">
-          <label class="mp-code-label">🏆 Trophy Limit:</label>
+          <label class="mp-code-label">🤝 Loyalty Limit:</label>
           <div class="mp-trophy-picker">
             <button class="mp-trophy-btn" data-val="10">10</button>
             <button class="mp-trophy-btn active" data-val="15">15</button>

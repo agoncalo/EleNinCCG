@@ -18,6 +18,9 @@ class Game {
     // Per-cell sprite animations { 'r,c': { cls, time } }
     this._cellAnims = {};
 
+    // Column flash timers { col: timeRemaining }
+    this._columnFlashes = {};
+
     // ── 3 Decks per side (Z=attack, X=summon, C=item) ────────
     this.playerDeckZ = shuffleArray(playerDecks.z);
     this.playerDeckX = shuffleArray(playerDecks.x);
@@ -146,21 +149,11 @@ class Game {
     `;
     wrap.appendChild(cpuBar);
 
-    // Trophy bar
-    const trophyBar = document.createElement('div');
-    trophyBar.id = 'trophy-bar';
-    trophyBar.innerHTML = `
-      <div class="trophy-row">
-        <span class="trophy-label trophy-player">🏆 You: <span id="trophy-plr-count">0</span></span>
-        <div class="trophy-track"><div class="trophy-fill trophy-fill-player" id="trophy-fill-plr"></div></div>
-      </div>
-      <span class="trophy-goal" id="trophy-limit-label"></span>
-      <div class="trophy-row">
-        <div class="trophy-track"><div class="trophy-fill trophy-fill-cpu" id="trophy-fill-cpu"></div></div>
-        <span class="trophy-label trophy-cpu"><span id="trophy-cpu-count">0</span> :Enemy 🏆</span>
-      </div>
-    `;
-    wrap.appendChild(trophyBar);
+    // CPU Loyalty bar (full width)
+    const cpuLoyaltyRow = document.createElement('div');
+    cpuLoyaltyRow.className = 'loyalty-row';
+    cpuLoyaltyRow.innerHTML = `<span class="loyalty-label enemy-color">🤝</span><div class="loyalty-track"><div class="loyalty-fill enemy-loyalty" id="cpu-loyalty-bar"></div></div><span class="loyalty-text" id="cpu-loyalty-text"></span>`;
+    wrap.appendChild(cpuLoyaltyRow);
 
     // Grid
     const gridDiv = document.createElement('div');
@@ -203,6 +196,12 @@ class Game {
       <span class="deck-count" id="plr-deck-count"></span>
     `;
     wrap.appendChild(plrBar);
+
+    // Player Loyalty bar (full width)
+    const plrLoyaltyRow = document.createElement('div');
+    plrLoyaltyRow.className = 'loyalty-row';
+    plrLoyaltyRow.innerHTML = `<span class="loyalty-label player-color">🤝</span><div class="loyalty-track"><div class="loyalty-fill player-loyalty" id="plr-loyalty-bar"></div></div><span class="loyalty-text" id="plr-loyalty-text"></span>`;
+    wrap.appendChild(plrLoyaltyRow);
 
     // Hand area
     const handDiv = document.createElement('div');
@@ -260,11 +259,10 @@ class Game {
     this.el.plrElemBadge = document.getElementById('plr-elem-badge');
     this.el.cpuDeck   = document.getElementById('cpu-deck-count');
     this.el.plrDeck   = document.getElementById('plr-deck-count');
-    this.el.trophyPlr      = document.getElementById('trophy-plr-count');
-    this.el.trophyCpu      = document.getElementById('trophy-cpu-count');
-    this.el.trophyFillPlr  = document.getElementById('trophy-fill-plr');
-    this.el.trophyFillCpu  = document.getElementById('trophy-fill-cpu');
-    this.el.trophyLimitLbl = document.getElementById('trophy-limit-label');
+    this.el.plrLoyaltyBar  = document.getElementById('plr-loyalty-bar');
+    this.el.plrLoyaltyText = document.getElementById('plr-loyalty-text');
+    this.el.cpuLoyaltyBar  = document.getElementById('cpu-loyalty-bar');
+    this.el.cpuLoyaltyText = document.getElementById('cpu-loyalty-text');
     this.el.grid      = gridDiv;
     this.el.wrap      = wrap;
   }
@@ -402,6 +400,12 @@ class Game {
     for (const key in this._cellAnims) {
       this._cellAnims[key].time -= dt;
       if (this._cellAnims[key].time <= 0) delete this._cellAnims[key];
+    }
+
+    // Column flash timers
+    for (const col in this._columnFlashes) {
+      this._columnFlashes[col] -= dt;
+      if (this._columnFlashes[col] <= 0) delete this._columnFlashes[col];
     }
 
     // Poison tick
@@ -591,8 +595,9 @@ class Game {
         SFX.attack();
         this._executeAttack(card, col, true);
         this._consumeSlot(s, slot, true);
-        // Sprite lunge on player ninja
+        // Sprite lunge on player ninja + column flash
         this._triggerCellAnim(3, col, 'sprite-atk', 300);
+        this._columnFlashes[col] = 350;
         break;
       case 'item':
         this._executeItem(card, true);
@@ -641,8 +646,9 @@ class Game {
         SFX.attack();
         this._executeAttack(card, col, false);
         this._consumeSlot(s, slot, false);
-        // Sprite lunge on CPU ninja
+        // Sprite lunge on CPU ninja + column flash
         this._triggerCellAnim(0, col, 'sprite-atk', 300);
+        this._columnFlashes[col] = 350;
         break;
       case 'item':
         this._executeItem(card, false);
@@ -1275,7 +1281,7 @@ class Game {
         this.trophyPlayer += pts;
       }
       SFX.enemyDie();
-      this._spawnText('🏆+' + pts, row, col, '#f1c40f');
+      this._spawnText('🤝+' + pts, row, col, '#f1c40f');
       this.grid[row][col] = null;
       this._spawnText('💥', row, col, '#f39c12');
     }
@@ -1371,6 +1377,24 @@ class Game {
   _renderGrid() {
     const cpuCol = Math.round(this.cpuNinja.col);
     const plrCol = Math.round(this.playerNinja.col);
+
+    // Compute telegraph targets (cells about to be attacked by summons)
+    const telegraphTargets = new Set();
+    for (let r = 1; r <= 2; r++) {
+      for (let c = 0; c < 4; c++) {
+        const s = this.grid[r][c];
+        if (s && s.stunTimer <= 0 && s.atkTimer <= 500) {
+          if (s.isPlayer) {
+            if (this.grid[1][c] && !this.grid[1][c].isPlayer) telegraphTargets.add('1,' + c);
+            else telegraphTargets.add('0,' + c);
+          } else {
+            if (this.grid[2][c] && this.grid[2][c].isPlayer) telegraphTargets.add('2,' + c);
+            else telegraphTargets.add('3,' + c);
+          }
+        }
+      }
+    }
+
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
         const cell = this.el.cells[r][c];
@@ -1413,6 +1437,7 @@ class Game {
         if (summon && (r === 1 || r === 2)) {
           cell.classList.add('summon-cell', summon.isPlayer ? 'player-summon' : 'enemy-summon');
           if (summon.stunTimer > 0) cell.classList.add('stunned');
+          if (summon.stunTimer <= 0 && summon.atkTimer <= 500) cell.classList.add('summon-telegraph');
           const hpPct = Math.max(0, summon.hp / summon.maxHp * 100);
           const hpColor = hpPct <= 25 ? '#e74c3c' : hpPct <= 50 ? '#f5a623' : 'var(--green)';
           if (hpPct <= 25) cell.classList.add('near-death');
@@ -1420,7 +1445,7 @@ class Game {
           cell.innerHTML = `
             <div class="summon-sticker">${renderSticker(summon)}</div>
             <div class="summon-hp-bar"><div class="summon-hp-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
-            <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk} 🏆${summon.trophyPts || 1}</div>
+            <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk} 🤝${summon.trophyPts || 1}</div>
           `;
         }
 
@@ -1440,6 +1465,16 @@ class Game {
           if (t.row === r && t.col === c) {
             cell.classList.add('tile-' + t.type);
           }
+        }
+
+        // Telegraph target warning (incoming summon attack)
+        if (telegraphTargets.has(r + ',' + c)) {
+          cell.classList.add('telegraph-target');
+        }
+
+        // Column flash from ninja attacks
+        if (this._columnFlashes[c] > 0) {
+          cell.classList.add('column-flash');
         }
 
         // Apply sprite-level animations from _cellAnims
@@ -1495,7 +1530,7 @@ class Game {
           else if (card.effect === 'transform') statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.transformSprite}</span></div>`;
           else statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.description}</span></div>`;
         }
-        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span><span class="stat-trophy">🏆${card.trophyPts || 1}</span></div>`;
+        if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span><span class="stat-trophy">🤝${card.trophyPts || 1}</span></div>`;
         if (card.type === 'equipment') {
           const mainStat = card.damage ? `⚔${card.damage}` : card.effect === 'bubble' ? `🛡️${(card.value/1000)}s` : `🛡️${card.value}`;
           statsHtml = `<div class="card-stat eq"><span class="stat-big">${mainStat}</span><span class="stat-uses">×${s.usesLeft}</span></div>`;
@@ -1591,11 +1626,10 @@ class Game {
 
   _renderTrophy() {
     const limit = this.trophyLimit;
-    this.el.trophyPlr.textContent = this.trophyPlayer + '/' + limit;
-    this.el.trophyCpu.textContent = this.trophyCpu + '/' + limit;
-    this.el.trophyFillPlr.style.width = Math.min(100, this.trophyPlayer / limit * 100) + '%';
-    this.el.trophyFillCpu.style.width = Math.min(100, this.trophyCpu / limit * 100) + '%';
-    this.el.trophyLimitLbl.textContent = 'First to ' + limit;
+    this.el.plrLoyaltyBar.style.width = Math.min(100, this.trophyPlayer / limit * 100) + '%';
+    this.el.plrLoyaltyText.textContent = this.trophyPlayer + '/' + limit;
+    this.el.cpuLoyaltyBar.style.width = Math.min(100, this.trophyCpu / limit * 100) + '%';
+    this.el.cpuLoyaltyText.textContent = this.trophyCpu + '/' + limit;
   }
 
   _renderDeckCount() {
@@ -1805,7 +1839,7 @@ class Game {
     overlay.id = 'game-result-overlay';
 
     const trophyStr = reason === 'trophy'
-      ? `<div class="trophy-result">🏆 Trophy Victory! (${playerWon ? this.trophyPlayer : this.trophyCpu}/${this.trophyLimit})</div>`
+      ? `<div class="trophy-result">${playerWon ? '🤝 Loyalty Victory!' : '💔 Loyalty Defeat!'} (${playerWon ? this.trophyPlayer : this.trophyCpu}/${this.trophyLimit})</div>`
       : '';
 
     let rewardHtml = '';
