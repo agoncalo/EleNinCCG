@@ -286,6 +286,9 @@ class Game {
     this._boundKey = (e) => this._onKey(e);
     document.addEventListener('keydown', this._boundKey);
 
+    // Start battle music
+    this._startMusic();
+
     // Only run game loop for host / single-player (guest renders from state)
     if (!this.isMultiplayer || this.isHost) {
       this._raf = requestAnimationFrame((t) => this._loop(t));
@@ -298,6 +301,19 @@ class Game {
     this.running = false;
     document.removeEventListener('keydown', this._boundKey);
     if (this._raf) cancelAnimationFrame(this._raf);
+  }
+
+  _startMusic() {
+    if (this.isMultiplayer) { Music.play('arena'); return; }
+    if (this.enemyData.isBoss) {
+      const idx = CHAPTERS.findIndex(ch => ch.enemies.some(e => e.id === this.enemyData.id));
+      const bossTrack = GENERAL_BOSS_TRACKS[idx % GENERAL_BOSS_TRACKS.length] || 'boss';
+      Music.play(bossTrack);
+    } else {
+      const idx = CHAPTERS.findIndex(ch => ch.enemies.some(e => e.id === this.enemyData.id));
+      const stageTrack = ['stage1','stage2','stage3','tower','stage2'][idx] || 'stage1';
+      Music.play(stageTrack);
+    }
   }
 
   _loop(timestamp) {
@@ -410,6 +426,7 @@ class Game {
           const { deck, discard } = this._getDecksForSlot(i, isPlayer);
           s.card = this._drawFromDeck(deck, discard);
           s.state = s.card ? 'ready' : 'empty';
+          if (s.card) SFX.play(600, 'triangle', 0.06, 0.05, 200);
           s.timer = 0;
         }
       } else if (s.state === 'cooldown') {
@@ -466,6 +483,7 @@ class Game {
     const newCol = this.playerNinja.col + dir;
     if (newCol >= 0 && newCol <= 3) {
       this.playerNinja.col = newCol;
+      SFX.jump();
       this.moveCD = cd;
       // Ice slide: if stepping onto ice tile, keep sliding in same direction
       this._checkIceSlide(this.playerNinja, 3, dir);
@@ -502,6 +520,7 @@ class Game {
       const next = ninja.col + dir;
       if (next >= 0 && next <= 3) {
         ninja.col = next;
+        SFX.chain();
         this._spawnText('❄️Slide!', row, ninja.col, '#87ceeb');
         // Chain slide if next tile is also ice
         this._checkIceSlide(ninja, row, dir);
@@ -543,6 +562,7 @@ class Game {
 
     switch (card.type) {
       case 'attack':
+        SFX.attack();
         this._executeAttack(card, col, true);
         this._consumeSlot(s, slot, true);
         // Sprite lunge on player ninja
@@ -592,6 +612,7 @@ class Game {
 
     switch (card.type) {
       case 'attack':
+        SFX.attack();
         this._executeAttack(card, col, false);
         this._consumeSlot(s, slot, false);
         // Sprite lunge on CPU ninja
@@ -651,9 +672,11 @@ class Game {
     const target = isPlayer ? this.cpuNinja : this.playerNinja;
     switch (effect) {
       case 'burn':
+        SFX.play(200, 'sawtooth', 0.15, 0.1, -50);
         this._spawnTileEffect('burn', targetRow, targetCol);
         break;
       case 'stun': {
+        SFX.play(800, 'square', 0.12, 0.1, -400);
         // Stun the target ninja or summon
         if ((targetRow === 0 || targetRow === 3)) {
           const tgt = targetRow === 0 ? this.cpuNinja : this.playerNinja;
@@ -665,6 +688,7 @@ class Game {
         break;
       }
       case 'lifesteal': {
+        SFX.pickup();
         const heal = Math.max(1, Math.round(ninja.maxHp * 0.08));
         ninja.hp = Math.min(ninja.maxHp, ninja.hp + heal);
         this._spawnText('+' + heal, isPlayer ? 3 : 0, ninja.col, '#2ecc71');
@@ -672,9 +696,11 @@ class Game {
         break;
       }
       case 'freeze':
+        SFX.play(1200, 'triangle', 0.15, 0.08, -600);
         this._spawnTileEffect('ice', targetRow, targetCol);
         break;
       case 'poison': {
+        SFX.play(100, 'sawtooth', 0.2, 0.06, 30);
         if (targetRow === 0) this.cpuNinja.poison = Math.min(5, this.cpuNinja.poison + 1);
         if (targetRow === 3) this.playerNinja.poison = Math.min(5, this.playerNinja.poison + 1);
         break;
@@ -710,10 +736,13 @@ class Game {
     if (ninja.boost > 0) { dmg += ninja.boost; ninja.boost = 0; }
     const element = card.element || 'normal';
     if (card.melee) {
+      SFX.backstab();
       this._executeMeleeHit(dmg, col, isPlayer, card.poison || 0, card.pushback || false, element);
     } else if (card.hitscan) {
+      SFX.shuriken();
       this._executeHitscanAttack(dmg, col, isPlayer, card, element);
     } else {
+      SFX.shuriken();
       this.projectiles.push({
         col: col,
         y: isPlayer ? 3 : 0,
@@ -813,6 +842,7 @@ class Game {
     const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
     switch (card.effect) {
       case 'heal':
+        SFX.pickup();
         ninja.hp = Math.min(ninja.maxHp, ninja.hp + card.value);
         this._spawnText('+' + card.value, isPlayer ? 3 : 0, ninja.col, '#2ecc71');
         // Heal pulse on sprite + green vignette for player
@@ -824,23 +854,28 @@ class Game {
         }
         break;
       case 'shield':
+        SFX.armor();
         ninja.shield += card.value;
         this._spawnText('+🛡️' + card.value, isPlayer ? 3 : 0, ninja.col, '#3498db');
         this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-shield', 400);
         break;
       case 'dodge':
+        SFX.special();
         ninja.dodge = true;
         this._spawnText('Dodge!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
         break;
       case 'boost':
+        SFX.special();
         ninja.boost += card.value;
         this._spawnText('+⚔️' + card.value, isPlayer ? 3 : 0, ninja.col, '#e94560');
         break;
       case 'speed':
+        SFX.special();
         ninja.speedTimer = card.value;
         this._spawnText('Speed!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
         break;
       case 'aoe': {
+        SFX.slam();
         // Damage all enemy summons (element-aware)
         const row = isPlayer ? 1 : 2;
         const atkEl = card.element || 'normal';
@@ -877,6 +912,7 @@ class Game {
       stunTimer: 0
     };
     // Spawn pop-in animation
+    SFX.bossSpawn();
     this._triggerCellAnim(row, col, 'sprite-spawn', 400);
     return true;
   }
@@ -1063,6 +1099,7 @@ class Game {
     const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
     if (ninja.dodge) {
       ninja.dodge = false;
+      SFX.miss();
       this._spawnText('DODGE!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
       return;
     }
@@ -1071,10 +1108,11 @@ class Game {
       const blocked = Math.min(ninja.shield, dmg);
       ninja.shield -= blocked;
       dmg -= blocked;
-      if (blocked > 0) this._spawnText('🛡️-' + blocked, isPlayer ? 3 : 0, ninja.col, '#3498db');
+      if (blocked > 0) { SFX.parry(); this._spawnText('🛡️-' + blocked, isPlayer ? 3 : 0, ninja.col, '#3498db'); }
     }
     if (dmg > 0) {
       ninja.hp = Math.max(0, ninja.hp - dmg);
+      if (isPlayer) SFX.playerHurt(); else SFX.hit();
       this._spawnText('-' + dmg, isPlayer ? 3 : 0, ninja.col, '#e94560');
       // Sprite recoil + white flash on hit
       this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-hit', 350);
@@ -1097,6 +1135,7 @@ class Game {
     const s = this.grid[row][col];
     if (!s) return;
     s.hp -= amount;
+    SFX.hit();
     this._spawnText('-' + amount, row, col, '#e94560');
     // Sprite recoil + white flash on summon hit
     this._triggerCellAnim(row, col, 'sprite-hit', 300);
@@ -1111,6 +1150,7 @@ class Game {
       } else {
         this.trophyPlayer += pts;
       }
+      SFX.enemyDie();
       this._spawnText('🏆+' + pts, row, col, '#f1c40f');
       this.grid[row][col] = null;
       this._spawnText('💥', row, col, '#f39c12');
@@ -1589,6 +1629,8 @@ class Game {
   _endGame(playerWon, reason) {
     this.running = false;
     document.removeEventListener('keydown', this._boundKey);
+    Music.stop();
+    if (playerWon) SFX.victory(); else SFX.bossDie();
 
     // Multiplayer: notify remote player
     if (this.isMultiplayer && this.isHost) {

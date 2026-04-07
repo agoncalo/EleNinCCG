@@ -7,6 +7,7 @@ const Menu = {
   // ── Main Menu ──────────────────────────────────────────────
   showMain() {
     ScreenManager.show('menu');
+    Music.play('menu');
   },
 
   // ── Chapter Select ─────────────────────────────────────────

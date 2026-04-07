@@ -26,6 +26,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-back-chapters').onclick = () => Menu.showChapters();
   document.getElementById('btn-back-mp').onclick     = () => { Multiplayer.disconnect(); Menu.showMain(); };
 
+  // Audio toggles
+  document.getElementById('btn-toggle-music').onclick = () => {
+    const muted = !Music.muted;
+    Music.setMuted(muted);
+    document.getElementById('btn-toggle-music').textContent = muted ? '🎵 Music: OFF' : '🎵 Music: ON';
+  };
+  document.getElementById('btn-toggle-sfx').onclick = () => {
+    SFX.muted = !SFX.muted;
+    document.getElementById('btn-toggle-sfx').textContent = SFX.muted ? '🔇 SFX: OFF' : '🔊 SFX: ON';
+  };
+
   // Show main menu
   Menu.showMain();
 });

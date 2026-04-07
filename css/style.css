@@ -58,6 +58,14 @@ html, body {
 .deck-btn { border-color: var(--accent); background: linear-gradient(135deg, rgba(88,166,255,0.08), transparent); }
 .deck-btn:hover { background: linear-gradient(135deg, rgba(88,166,255,0.2), rgba(88,166,255,0.05)); border-color: #7ab8ff; }
 
+.audio-toggles { display: flex; gap: 12px; margin-top: 14px; justify-content: center; }
+.audio-btn {
+  padding: 8px 16px; font-size: 0.85rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer; color: var(--text-dim); background: var(--bg-card);
+  transition: all 0.2s ease;
+}
+.audio-btn:hover { color: var(--text); border-color: var(--accent); }
+
 .back-btn {
   position: fixed; bottom: 20px; left: 20px;
   padding: 10px 24px; border-radius: 8px; border: 1px solid var(--border);
