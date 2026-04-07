@@ -1205,6 +1205,8 @@ class Game {
   }
 
   _renderGrid() {
+    const cpuCol = Math.round(this.cpuNinja.col);
+    const plrCol = Math.round(this.playerNinja.col);
     for (let r = 0; r < 4; r++) {
       for (let c = 0; c < 4; c++) {
         const cell = this.el.cells[r][c];
@@ -1212,7 +1214,7 @@ class Game {
         cell.innerHTML = '';
 
         // Ninja rows
-        if (r === 0 && c === this.cpuNinja.col) {
+        if (r === 0 && c === cpuCol) {
           cell.classList.add('ninja-cell', 'enemy-ninja');
           if (this.cpuNinja.stunTimer > 0) cell.classList.add('stunned');
           cell.innerHTML = `<div class="ninja-icon">${this.enemyData.portrait}</div>`;
@@ -1220,7 +1222,7 @@ class Game {
           if (this.cpuNinja.shield > 0) cell.innerHTML += `<div class="status-icon shield-icon">🛡️${this.cpuNinja.shield}</div>`;
           if (this.cpuNinja.poison > 0) cell.innerHTML += `<div class="status-icon poison-icon">☠️${this.cpuNinja.poison}</div>`;
         }
-        if (r === 3 && c === this.playerNinja.col) {
+        if (r === 3 && c === plrCol) {
           cell.classList.add('ninja-cell', 'player-ninja');
           if (this.playerNinja.stunTimer > 0) cell.classList.add('stunned');
           cell.innerHTML = `<div class="ninja-icon">🥷</div>`;
@@ -1252,8 +1254,8 @@ class Game {
         if (r === 2 && !this.grid[r][c]) cell.classList.add('player-zone');
 
         // Clickable movement indicators on player row
-        if (r === 3 && c !== this.playerNinja.col) {
-          const diff = Math.abs(c - this.playerNinja.col);
+        if (r === 3 && c !== plrCol) {
+          const diff = Math.abs(c - plrCol);
           if (diff === 1) cell.classList.add('move-target');
           else cell.classList.add('move-target-far');
         }
@@ -1637,9 +1639,10 @@ class Game {
         ${trophyStr}
         ${rewardHtml}
         <div class="result-buttons">
-          ${!this.isMultiplayer ? '<button id="btn-retry">Retry</button>' : ''}
+          ${!this.isMultiplayer ? '<button id="btn-retry">Retry</button>' : '<button id="btn-rematch">🔁 Rematch</button>'}
           <button id="btn-result-back">Back to Menu</button>
         </div>
+        ${this.isMultiplayer ? '<div class="mp-status" id="rematch-status"></div>' : ''}
       </div>
     `;
 
@@ -1649,6 +1652,12 @@ class Game {
       document.getElementById('btn-retry').onclick = () => {
         overlay.remove();
         this.onEnd('retry');
+      };
+    } else {
+      document.getElementById('btn-rematch').onclick = () => {
+        Multiplayer.requestRematch();
+        document.getElementById('btn-rematch').disabled = true;
+        document.getElementById('rematch-status').textContent = '⏳ Waiting for opponent...';
       };
     }
     document.getElementById('btn-result-back').onclick = () => {

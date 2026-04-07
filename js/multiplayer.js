@@ -9,6 +9,9 @@ const Multiplayer = {
   roomCode: '',
   _game: null,
   _trophyLimit: 15,
+  _rematchSelf: false,
+  _rematchPeer: false,
+  _guestDeck: null,
 
   // ── Netcode state ──────────────────────────────────────────
   _ping: 0,
@@ -233,6 +236,9 @@ const Multiplayer = {
     this._currState = null;
     this._interpAlpha = 1;
     this._lastGuestFrame = 0;
+    this._rematchSelf = false;
+    this._rematchPeer = false;
+    this._guestDeck = null;
   },
 
   // ══════════════════════════════════════════════════════════
@@ -254,6 +260,7 @@ const Multiplayer = {
 
     if (this.isHost) {
       if (msg.type === 'deck') {
+        this._guestDeck = msg.deck;
         this._startHostGame(msg.deck);
       } else if (msg.type === 'input') {
         if (this._game) {
@@ -285,6 +292,12 @@ const Multiplayer = {
         }
       }
     }
+
+    // Rematch protocol (both sides)
+    if (msg.type === 'rematch') {
+      this._rematchPeer = true;
+      this._checkRematch();
+    }
   },
 
   // ── Guest: send input with sequence number ─────────────────
@@ -310,6 +323,42 @@ const Multiplayer = {
         }
       }
     }
+  },
+
+  // ── Rematch ───────────────────────────────────────────────
+  requestRematch() {
+    this._rematchSelf = true;
+    this.send({ type: 'rematch' });
+    this._checkRematch();
+  },
+
+  _checkRematch() {
+    if (!this._rematchSelf || !this._rematchPeer) {
+      // Update status if visible
+      if (this._rematchPeer) {
+        const el = document.getElementById('rematch-status');
+        if (el) el.textContent = '✅ Opponent wants rematch!';
+        const btn = document.getElementById('btn-rematch');
+        if (btn) btn.disabled = false;
+      }
+      return;
+    }
+    // Both want rematch — restart
+    this._rematchSelf = false;
+    this._rematchPeer = false;
+    this._inputSeq = 0;
+    this._pendingInputs = [];
+    this._prevState = null;
+    this._currState = null;
+    this._interpAlpha = 1;
+    this._lastGuestFrame = 0;
+
+    if (this._game) { this._game.stop(); this._game = null; }
+
+    if (this.isHost) {
+      this._startHostGame(this._guestDeck);
+    }
+    // Guest waits for 'game-start' from host (sent inside _startHostGame)
   },
 
   _onDisconnect() {
