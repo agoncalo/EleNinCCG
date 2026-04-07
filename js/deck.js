@@ -228,11 +228,11 @@ const DeckEditor = {
     for (const tab of slots) {
       const min = this._minForSlot(tab);
       if (decks[tab].length < min) {
-        alert(`${this._getTabLabel(tab)} needs at least ${min} cards!`);
+        showToast(`${this._getTabLabel(tab)} needs at least ${min} cards!`);
         return;
       }
     }
     Storage.saveDeck({ z: [...this._deckZ], x: [...this._deckX], c: [...this._deckC] });
-    alert('Decks saved!');
+    showToast('Decks saved! ✅');
   }
 };

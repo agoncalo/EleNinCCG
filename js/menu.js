@@ -103,7 +103,7 @@ const Menu = {
   startBattle(enemy) {
     const deck = Storage.getDeck();
     if (!deck) {
-      alert('No deck found! Edit your deck first.');
+      showToast('No deck found! Edit your deck first.');
       return;
     }
     const col = Storage.getCollection();
@@ -117,7 +117,7 @@ const Menu = {
       for (const id of Object.keys(col)) { const c = CARD_DB[id]; if (c && s.test(c)) avail += col[id]; }
       const min = Math.min(10, avail);
       if (deck[s.key].length < min) {
-        alert(`${s.label} deck needs at least ${min} cards! Edit your deck first.`);
+        showToast(`${s.label} deck needs at least ${min} cards! Edit your deck first.`);
         return;
       }
     }

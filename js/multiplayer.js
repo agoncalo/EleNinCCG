@@ -52,7 +52,7 @@ const Multiplayer = {
   _hostGame() {
     // Check deck first
     if (!Storage.getDeck()) {
-      alert('No deck found! Set up your deck first.');
+      showToast('No deck found! Set up your deck first.');
       return;
     }
 
@@ -108,7 +108,7 @@ const Multiplayer = {
   _showJoinView() {
     // Check deck first
     if (!Storage.getDeck()) {
-      alert('No deck found! Set up your deck first.');
+      showToast('No deck found! Set up your deck first.');
       return;
     }
 
@@ -390,7 +390,7 @@ const Multiplayer = {
   // ══════════════════════════════════════════════════════════
   _startHostGame(guestDeck) {
     const hostDeck = Storage.getDeck();
-    if (!hostDeck) { alert('No deck found!'); return; }
+    if (!hostDeck) { showToast('No deck found!'); return; }
 
     // Flatten guest 3-deck format into single array for enemyData
     const guestDeckFlat = [

@@ -18,6 +18,7 @@
           <button id="btn-play" class="big-btn play-btn">▶ Play</button>
           <button id="btn-mp" class="big-btn mp-menu-btn">⚔️ Multiplayer</button>
           <button id="btn-deck" class="big-btn deck-btn">🃏 Deck Editor</button>
+          <button id="btn-help" class="big-btn help-btn">❓ How to Play</button>
         </div>
         <div class="audio-toggles">
           <button id="btn-toggle-music" class="audio-btn">🎵 Music: ON</button>
@@ -52,6 +53,63 @@
       <h2 class="screen-title">⚔️ Multiplayer</h2>
       <div id="mp-lobby-content" class="mp-lobby"></div>
       <button id="btn-back-mp" class="back-btn">← Back</button>
+    </div>
+
+    <!-- ═══ HOW TO PLAY ═══ -->
+    <div id="screen-how-to-play" class="screen hidden">
+      <h2 class="screen-title">❓ How to Play</h2>
+      <div class="help-content">
+        <div class="help-section">
+          <h3>🎮 Controls</h3>
+          <table class="help-table">
+            <tr><td><kbd>A</kbd> / <kbd>←</kbd></td><td>Move left</td></tr>
+            <tr><td><kbd>D</kbd> / <kbd>→</kbd></td><td>Move right</td></tr>
+            <tr><td><kbd>Z</kbd></td><td>Play Attack / Equipment card</td></tr>
+            <tr><td><kbd>X</kbd></td><td>Play Summon card</td></tr>
+            <tr><td><kbd>C</kbd></td><td>Play Item card</td></tr>
+            <tr><td>📱 Tap</td><td>Tap card slots or arrow buttons on mobile</td></tr>
+          </table>
+        </div>
+        <div class="help-section">
+          <h3>⚔️ Basics</h3>
+          <ul>
+            <li>You and your opponent fight on a <b>4×4 grid</b> — you're on the bottom row, they're on top.</li>
+            <li>Cards auto-draw into 3 slots: <b>Z</b> (attacks/equipment), <b>X</b> (summons), <b>C</b> (items).</li>
+            <li>Win by reaching the <b>trophy limit</b> or reducing the enemy's <b>HP to 0</b>.</li>
+            <li>Earn trophies by defeating enemy <b>summons</b>.</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>🃏 Card Types</h3>
+          <ul>
+            <li><b style="color:#e94560">Attacks</b> — Fire projectiles or melee strikes. Stronger attacks have longer draw cooldowns.</li>
+            <li><b style="color:#3498db">Summons</b> — Allied creatures placed on the grid that fight automatically.</li>
+            <li><b style="color:#2ecc71">Items</b> — Heals, buffs, shields, oils, food, and more. Stronger items take longer to draw the next card.</li>
+            <li><b style="color:#f5a623">Equipment</b> — Multi-use items in Z or C slot. Weaker equipment fires faster.</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>🌟 Elements</h3>
+          <ul>
+            <li>Every card and ninja has an <b>element</b>. Attacks deal <b>1.5×</b> against weak elements, <b>0.5×</b> against strong.</li>
+            <li>Elements also have <b>on-hit effects</b>: 🔥 burn, ⚡ stun, 🌿 lifesteal, ❄️ freeze, 🌑 poison, 🌪️ pushback, 💧 cleanse, 🪨 bubble shield.</li>
+          </ul>
+        </div>
+        <div class="help-section">
+          <h3>💡 Tips</h3>
+          <ul>
+            <li><b>Dodge</b> with Smoke Bomb — next incoming hit misses entirely.</li>
+            <li><b>Bubble</b> shields block ALL damage for a duration — time them against big attacks.</li>
+            <li><b>Oils</b> imbue your attacks with an element for 8s — use them to exploit weaknesses.</li>
+            <li><b>Speed</b> scrolls make all your cooldowns tick <b>2× faster</b>.</li>
+            <li><b>Food</b> items give mixed stat boosts — HP, ATK, speed, or max HP.</li>
+            <li><b>Transformation</b> items (ultra rare boss drops) change your element by transforming you and boost your max HP.</li>
+            <li>Build your deck in the <b>Deck Editor</b> — each slot (Z/X/C) needs 10 cards.</li>
+            <li>Defeat all enemies in a chapter to <b>unlock the boss</b>, then beat the boss for the <b>next chapter</b>.</li>
+          </ul>
+        </div>
+      </div>
+      <button id="btn-back-menu3" class="back-btn">← Back</button>
     </div>
 
     <!-- ═══ GAME SCREEN ═══ -->
