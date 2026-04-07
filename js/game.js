@@ -680,6 +680,7 @@ class Game {
         s.card = null;
         s.state = 'drawing';
         s.timer = 2000 + cd;
+        s.drawMax = s.timer;
         s.usesLeft = 0;
         return;
       }
@@ -689,6 +690,7 @@ class Game {
         s.card = null;
         s.state = 'drawing';
         s.timer = 2000 + cd;
+        s.drawMax = s.timer;
         s.usesLeft = 0;
         return;
       }
@@ -696,6 +698,7 @@ class Game {
     s.card  = null;
     s.state = 'drawing';
     s.timer = 2000;
+    s.drawMax = 2000;
     s.usesLeft = 0;
   }
 
@@ -1461,7 +1464,8 @@ class Game {
 
       if (s.state === 'drawing') {
         el.className = 'hand-slot drawing';
-        const pct = Math.max(0, s.timer / 2000 * 100);
+        const maxT = s.drawMax || 2000;
+        const pct = Math.max(0, s.timer / maxT * 100);
         const deg = Math.round((100 - pct) / 100 * 360);
         inner.innerHTML = `<div class="draw-clock"><div class="clock-hand" style="transform:rotate(${deg}deg)"></div></div><div class="draw-label">Drawing...</div>`;
       } else if (s.state === 'empty') {
