@@ -897,3 +897,72 @@ button, .col-card, .hand-slot, .chapter-card, .enemy-card, .grid-cell {
   min-height: 1.5em;
   text-align: center;
 }
+.mp-setting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mp-trophy-picker {
+  display: flex;
+  gap: 8px;
+}
+.mp-trophy-btn {
+  background: var(--bg-card);
+  border: 2px solid var(--border);
+  color: #aaa;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.mp-trophy-btn:hover {
+  border-color: #f1c40f;
+  color: #f1c40f;
+}
+.mp-trophy-btn.active {
+  border-color: #f1c40f;
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
+  font-weight: bold;
+}
+
+/* ── Ping display ──────────────────────────────────────────── */
+#ping-display {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  font-size: 0.75em;
+  color: #888;
+  z-index: 10;
+  pointer-events: none;
+}
+.ping-icon { font-size: 0.8em; }
+
+/* ── Queued card indicator ─────────────────────────────────── */
+.hand-slot.queued {
+  box-shadow: 0 0 10px rgba(241, 196, 15, 0.5), inset 0 0 8px rgba(241, 196, 15, 0.15);
+  animation: queued-pulse 0.6s ease-in-out infinite alternate;
+}
+@keyframes queued-pulse {
+  from { box-shadow: 0 0 6px rgba(241, 196, 15, 0.3), inset 0 0 4px rgba(241, 196, 15, 0.1); }
+  to   { box-shadow: 0 0 14px rgba(241, 196, 15, 0.6), inset 0 0 10px rgba(241, 196, 15, 0.2); }
+}
+.queued-label {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(241, 196, 15, 0.85);
+  color: #1a1a2e;
+  font-size: 0.6em;
+  font-weight: bold;
+  padding: 1px 6px;
+  border-radius: 4px;
+  z-index: 5;
+  pointer-events: none;
+  letter-spacing: 0.05em;
+}

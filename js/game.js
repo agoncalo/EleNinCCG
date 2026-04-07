@@ -86,6 +86,11 @@ class Game {
     this._cpuMoveCD = 0;
     this._lastGuestMoveTime = 0;
     this._remoteDeckCount = null;
+
+    // ── Input buffering: queued card plays ────────────────────
+    this._playerQueue = [null, null, null]; // buffered slot indices
+    this._cpuQueue    = [null, null, null];
+    this._guestLocalDt = 0; // for local cooldown tick
   }
 
   // ── Helpers ────────────────────────────────────────────────
@@ -231,6 +236,15 @@ class Game {
     hint.textContent = '← A / D → Move   |   Z  X  C  Play Cards   |   Click grid to move';
     wrap.appendChild(hint);
 
+    // Ping display (multiplayer only)
+    if (this.isMultiplayer) {
+      const pingDiv = document.createElement('div');
+      pingDiv.id = 'ping-display';
+      pingDiv.innerHTML = '<span class="ping-icon">📡</span> <span id="ping-value">--</span>';
+      wrap.appendChild(pingDiv);
+      this.el.pingDisplay = pingDiv.querySelector('#ping-value');
+    }
+
     screen.appendChild(wrap);
 
     // Cache more refs
@@ -308,9 +322,23 @@ class Game {
     // Speed buff timer
     if (this.playerNinja.speedTimer > 0) this.playerNinja.speedTimer -= dt;
 
-    // Stun timers
-    if (this.playerNinja.stunTimer > 0) this.playerNinja.stunTimer -= dt;
-    if (this.cpuNinja.stunTimer > 0) this.cpuNinja.stunTimer -= dt;
+    // Stun timers — flush queued inputs when stun ends
+    if (this.playerNinja.stunTimer > 0) {
+      this.playerNinja.stunTimer -= dt;
+      if (this.playerNinja.stunTimer <= 0) {
+        for (let i = 0; i < 3; i++) {
+          if (this._playerQueue[i]) { this.playCard(i); break; }
+        }
+      }
+    }
+    if (this.cpuNinja.stunTimer > 0) {
+      this.cpuNinja.stunTimer -= dt;
+      if (this.cpuNinja.stunTimer <= 0) {
+        for (let i = 0; i < 3; i++) {
+          if (this._cpuQueue[i]) { this.cpuPlayCard(i); break; }
+        }
+      }
+    }
 
     // Hand cooldowns / draws
     this._updateHandSlots(this.playerHand, true, dt);
@@ -373,6 +401,7 @@ class Game {
   }
 
   _updateHandSlots(hand, isPlayer, dt) {
+    const queue = isPlayer ? this._playerQueue : this._cpuQueue;
     for (let i = 0; i < 3; i++) {
       const s = hand[i];
       if (s.state === 'drawing') {
@@ -389,6 +418,12 @@ class Game {
           s.state = 'ready';
           s.timer = 0;
         }
+      }
+      // Flush queued card play when slot becomes ready
+      if (s.state === 'ready' && s.card && queue[i]) {
+        queue[i] = null;
+        if (isPlayer) this.playCard(i);
+        else this.cpuPlayCard(i);
       }
     }
   }
@@ -412,12 +447,18 @@ class Game {
   }
 
   movePlayer(dir) {
-    // Multiplayer guest: send input to host
+    // Multiplayer guest: send input to host + predict locally
     if (this.isMultiplayer && !this.isHost) {
       const now = performance.now();
       if (now - this._lastGuestMoveTime < this.baseMoveCD) return;
       this._lastGuestMoveTime = now;
-      Multiplayer.send({ type: 'input', action: 'move', dir });
+      Multiplayer.sendInput('move', { dir });
+      // Client-side prediction: move locally immediately
+      const newCol = this.playerNinja.col + dir;
+      if (newCol >= 0 && newCol <= 3) {
+        this.playerNinja.col = newCol;
+        this.render();
+      }
       return;
     }
     const cd = this.playerNinja.speedTimer > 0 ? this.baseMoveCD * 0.5 : this.baseMoveCD;
@@ -472,14 +513,30 @@ class Game {
   //  CARD PLAY (Player)
   // ════════════════════════════════════════════════════════════
   playCard(slot) {
-    // Multiplayer guest: send input to host
+    // Multiplayer guest: send input to host + buffer locally
     if (this.isMultiplayer && !this.isHost) {
-      Multiplayer.send({ type: 'input', action: 'playCard', slot });
+      const s = this.playerHand[slot];
+      // Buffer if not ready yet (cooldown/drawing) — will auto-fire
+      if (s && s.card && s.state !== 'ready') {
+        this._playerQueue[slot] = true;
+        this.render(); // show queued indicator
+      }
+      Multiplayer.sendInput('playCard', { slot });
       return;
     }
-    if (this.playerNinja.stunTimer > 0) return;
+    if (this.playerNinja.stunTimer > 0) {
+      // Buffer during stun
+      this._playerQueue[slot] = true;
+      return;
+    }
     const s = this.playerHand[slot];
-    if (!s.card || s.state !== 'ready') return;
+    if (!s.card) return;
+    // Buffer if not ready yet
+    if (s.state !== 'ready') {
+      this._playerQueue[slot] = true;
+      return;
+    }
+    this._playerQueue[slot] = null;
 
     const card = s.card;
     const col  = this.playerNinja.col;
@@ -518,9 +575,17 @@ class Game {
   //  CARD PLAY (CPU)
   // ════════════════════════════════════════════════════════════
   cpuPlayCard(slot) {
-    if (this.isMultiplayer && this.cpuNinja.stunTimer > 0) return;
+    if (this.isMultiplayer && this.cpuNinja.stunTimer > 0) {
+      this._cpuQueue[slot] = true;
+      return;
+    }
     const s = this.cpuHand[slot];
-    if (!s.card || s.state !== 'ready') return;
+    if (!s.card) return;
+    if (s.state !== 'ready') {
+      this._cpuQueue[slot] = true;
+      return;
+    }
+    this._cpuQueue[slot] = null;
 
     const card = s.card;
     const col  = this.cpuNinja.col;
@@ -1261,8 +1326,16 @@ class Game {
           el.classList.add('on-cooldown');
         }
 
+        // Queued indicator
+        let queuedTag = '';
+        if (this._playerQueue[i]) {
+          el.classList.add('queued');
+          queuedTag = '<div class="queued-label">QUEUED</div>';
+        }
+
         inner.innerHTML = `
           ${cdOverlay}
+          ${queuedTag}
           <div class="card-header-row">
             <span class="card-type-badge" style="background:${typeColor}">${card.type.toUpperCase()}</span>
             <span class="card-elem-badge" style="background:${elColor}">${elIcon}</span>
@@ -1468,6 +1541,16 @@ class Game {
 
     // Guest hand = host CPU hand
     this.playerHand = s.cH;
+    // Reset local cooldown delta — we just got authoritative state
+    this._guestLocalDt = 0;
+    // If guest has queued inputs, check if they can fire now
+    for (let i = 0; i < 3; i++) {
+      if (this._playerQueue[i] && this.playerHand[i] && this.playerHand[i].state === 'ready' && this.playerHand[i].card) {
+        // Card became ready on host, resend the buffered play
+        Multiplayer.sendInput('playCard', { slot: i });
+        this._playerQueue[i] = null;
+      }
+    }
 
     // Trophies (swapped)
     this.trophyPlayer = s.tC;

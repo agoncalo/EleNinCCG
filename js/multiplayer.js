@@ -8,6 +8,19 @@ const Multiplayer = {
   isHost: false,
   roomCode: '',
   _game: null,
+  _trophyLimit: 15,
+
+  // ── Netcode state ──────────────────────────────────────────
+  _ping: 0,
+  _pingTimer: 0,
+  _pingSent: 0,
+  _inputSeq: 0,
+  _pendingInputs: [],   // guest: inputs awaiting server ack
+  _lastStateTime: 0,
+  _prevState: null,      // for interpolation
+  _currState: null,
+  _interpAlpha: 1,
+  _lastGuestFrame: 0,
 
   // ── Room code generation ───────────────────────────────────
   _generateCode() {
@@ -43,11 +56,31 @@ const Multiplayer = {
     const content = document.getElementById('mp-lobby-content');
     content.innerHTML = `
       <div class="mp-waiting">
+        <div class="mp-setting">
+          <label class="mp-code-label">🏆 Trophy Limit:</label>
+          <div class="mp-trophy-picker">
+            <button class="mp-trophy-btn" data-val="10">10</button>
+            <button class="mp-trophy-btn active" data-val="15">15</button>
+            <button class="mp-trophy-btn" data-val="20">20</button>
+            <button class="mp-trophy-btn" data-val="25">25</button>
+            <button class="mp-trophy-btn" data-val="30">30</button>
+          </div>
+        </div>
         <div class="mp-code-label">Share this Room Code:</div>
         <div class="mp-code" id="mp-room-code">...</div>
         <div class="mp-status" id="mp-status">Setting up room...</div>
       </div>
     `;
+
+    // Trophy limit picker
+    this._trophyLimit = 15;
+    content.querySelectorAll('.mp-trophy-btn').forEach(btn => {
+      btn.onclick = () => {
+        content.querySelectorAll('.mp-trophy-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this._trophyLimit = parseInt(btn.dataset.val);
+      };
+    });
 
     this.createRoom((event) => {
       const codeEl = document.getElementById('mp-room-code');
@@ -170,29 +203,63 @@ const Multiplayer = {
     }
   },
 
+  // ── Ping measurement ───────────────────────────────────────
+  _startPing() {
+    this._pingTimer = setInterval(() => {
+      this._pingSent = performance.now();
+      this.send({ type: 'ping', t: this._pingSent });
+    }, 2000);
+  },
+
+  _stopPing() {
+    if (this._pingTimer) { clearInterval(this._pingTimer); this._pingTimer = 0; }
+  },
+
   disconnect() {
     if (this._game) {
       this._game.stop();
       this._game = null;
     }
+    this._stopPing();
     if (this.conn) { try { this.conn.close(); } catch(e) {} }
     if (this.peer) { try { this.peer.destroy(); } catch(e) {} }
     this.conn = null;
     this.peer = null;
     this.isHost = false;
     this.roomCode = '';
+    this._inputSeq = 0;
+    this._pendingInputs = [];
+    this._prevState = null;
+    this._currState = null;
+    this._interpAlpha = 1;
+    this._lastGuestFrame = 0;
   },
 
   // ══════════════════════════════════════════════════════════
   //  MESSAGE HANDLING
   // ══════════════════════════════════════════════════════════
   _onMessage(msg) {
+    // Ping/pong (both sides)
+    if (msg.type === 'ping') {
+      this.send({ type: 'pong', t: msg.t });
+      return;
+    }
+    if (msg.type === 'pong') {
+      this._ping = Math.round(performance.now() - msg.t);
+      if (this._game && this._game.el.pingDisplay) {
+        this._game.el.pingDisplay.textContent = this._ping + 'ms';
+      }
+      return;
+    }
+
     if (this.isHost) {
       if (msg.type === 'deck') {
         this._startHostGame(msg.deck);
       } else if (msg.type === 'input') {
         if (this._game) {
           this._game.applyRemoteInput(msg);
+          // Ack the input so guest can reconcile
+          this.send({ type: 'input-ack', seq: msg.seq });
         }
       }
     } else {
@@ -200,12 +267,46 @@ const Multiplayer = {
         this._startGuestGame(msg.config);
       } else if (msg.type === 'state') {
         if (this._game) {
+          // Store for interpolation
+          this._prevState = this._currState;
+          this._currState = msg.state;
+          this._lastStateTime = performance.now();
+          this._interpAlpha = 0;
           this._game.applyRemoteState(msg.state);
+          // Reconcile: re-apply unacknowledged inputs
+          this._reconcile(msg.state);
         }
+      } else if (msg.type === 'input-ack') {
+        // Remove acknowledged inputs
+        this._pendingInputs = this._pendingInputs.filter(i => i.seq > msg.seq);
       } else if (msg.type === 'game-end') {
         if (this._game) {
-          // Invert playerWon for guest perspective
           this._game._endGame(!msg.playerWon, msg.reason);
+        }
+      }
+    }
+  },
+
+  // ── Guest: send input with sequence number ─────────────────
+  sendInput(action, data) {
+    this._inputSeq++;
+    const msg = { type: 'input', action, seq: this._inputSeq, ...data };
+    this._pendingInputs.push(msg);
+    this.send(msg);
+  },
+
+  // ── Guest: reconcile predicted state with server state ─────
+  _reconcile(serverState) {
+    if (!this._game || this._pendingInputs.length === 0) return;
+    // Re-apply pending (unacked) inputs on top of server state
+    // This is limited to movement prediction for the guest's ninja
+    // (which is the CPU ninja from host's perspective, so cN in state)
+    const ninja = this._game.playerNinja;
+    for (const input of this._pendingInputs) {
+      if (input.action === 'move') {
+        const newCol = ninja.col + input.dir;
+        if (newCol >= 0 && newCol <= 3) {
+          ninja.col = newCol;
         }
       }
     }
@@ -249,6 +350,7 @@ const Multiplayer = {
       ...(guestDeck.c || [])
     ];
 
+    const tLimit = this._trophyLimit || 15;
     const enemyData = {
       id: 'mp_guest',
       name: 'Player 2',
@@ -257,7 +359,7 @@ const Multiplayer = {
       element: 'normal',
       deck: guestDeckFlat,
       difficulty: 0.5,
-      trophyLimit: 15
+      trophyLimit: tLimit
     };
 
     ScreenManager.show('game');
@@ -270,9 +372,10 @@ const Multiplayer = {
     game.isHost = true;
     this._game = game;
     game.start();
+    this._startPing();
 
     // Tell guest game is starting
-    this.send({ type: 'game-start', config: { trophyLimit: 15 } });
+    this.send({ type: 'game-start', config: { trophyLimit: tLimit } });
   },
 
   _startGuestGame(config) {
@@ -296,6 +399,61 @@ const Multiplayer = {
     game.isMultiplayer = true;
     game.isHost = false;
     this._game = game;
-    game.start(); // buildDOM + key listeners, no game loop for guest
+    game.start();
+    this._startPing();
+
+    // Start guest interpolation render loop
+    this._guestRaf = requestAnimationFrame(() => this._guestLoop());
+  },
+
+  // ── Guest render loop: smooth interpolation between state snapshots ──
+  _guestLoop() {
+    if (!this._game || !this._game.running) return;
+    const now = performance.now();
+
+    // Local cooldown/draw timer tick (so the UI countdown stays smooth)
+    if (this._lastGuestFrame) {
+      const ldt = Math.min(now - this._lastGuestFrame, 100);
+      this._game._guestLocalDt += ldt;
+      for (let i = 0; i < 3; i++) {
+        const s = this._game.playerHand[i];
+        if (!s) continue;
+        if (s.state === 'cooldown' && s.timer > 0) s.timer = Math.max(0, s.timer - ldt);
+        if (s.state === 'drawing' && s.timer > 0) s.timer = Math.max(0, s.timer - ldt);
+      }
+    }
+    this._lastGuestFrame = now;
+
+    // Interpolate between prev and curr state for smooth visuals
+    if (this._prevState && this._currState && this._interpAlpha < 1) {
+      const elapsed = now - this._lastStateTime;
+      this._interpAlpha = Math.min(1, elapsed / 50);
+      this._interpolatePositions(this._prevState, this._currState, this._interpAlpha);
+    }
+
+    this._game.render();
+    this._guestRaf = requestAnimationFrame(() => this._guestLoop());
+  },
+
+  // ── Lerp ninja/projectile positions for smooth guest rendering ──
+  _interpolatePositions(prev, curr, t) {
+    if (!this._game) return;
+    const g = this._game;
+    // Lerp player ninja col (guest's = host's cN)
+    const prevPCol = prev.cN.col;
+    const currPCol = curr.cN.col;
+    g.playerNinja.col = prevPCol + (currPCol - prevPCol) * t;
+    // Lerp enemy ninja col (guest's = host's pN)
+    const prevECol = prev.pN.col;
+    const currECol = curr.pN.col;
+    g.cpuNinja.col = prevECol + (currECol - prevECol) * t;
+    // Lerp projectile Y positions
+    if (prev.proj && curr.proj) {
+      for (let i = 0; i < g.projectiles.length && i < prev.proj.length && i < curr.proj.length; i++) {
+        const pY = 3 - prev.proj[i].y;
+        const cY = 3 - curr.proj[i].y;
+        g.projectiles[i].y = pY + (cY - pY) * t;
+      }
+    }
   }
 };
