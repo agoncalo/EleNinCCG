@@ -1822,6 +1822,11 @@ class Game {
       }
       // Roll 5 reward cards
       const rewardIds = rollRewardCards(5);
+      // Boss transformation drop (5% chance)
+      if (this.enemyData.isBoss && this.enemyData.reward && Math.random() < 0.05) {
+        const transformId = this.enemyData.reward.find(id => CARD_DB[id] && CARD_DB[id].effect === 'transform');
+        if (transformId) rewardIds.push(transformId);
+      }
       Storage.addCardsToCollection(rewardIds);
       rewardHtml = `<div class="reward-section"><h3>🎁 Card Drops:</h3><div class="reward-cards">${
         rewardIds.map(id => {

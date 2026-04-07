@@ -297,6 +297,7 @@ function rollRewardCards(count) {
   const totalWeight = Object.values(RARITY_WEIGHTS).reduce((a, b) => a + b, 0);
   const cardsByRarity = {};
   for (const id of Object.keys(CARD_DB)) {
+    if (CARD_DB[id].effect === 'transform') continue; // boss-only drops
     const r = CARD_DB[id].rarity;
     if (!cardsByRarity[r]) cardsByRarity[r] = [];
     cardsByRarity[r].push(id);
