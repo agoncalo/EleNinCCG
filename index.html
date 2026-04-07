@@ -16,6 +16,7 @@
         <p class="subtitle">Elemental Ninja Card Game</p>
         <div class="menu-buttons">
           <button id="btn-play" class="big-btn play-btn">▶ Play</button>
+          <button id="btn-mp" class="big-btn mp-menu-btn">⚔️ Multiplayer</button>
           <button id="btn-deck" class="big-btn deck-btn">🃏 Deck Editor</button>
         </div>
       </div>
@@ -42,18 +43,27 @@
       <button id="btn-back-menu2" class="back-btn">← Back</button>
     </div>
 
+    <!-- ═══ MULTIPLAYER LOBBY ═══ -->
+    <div id="screen-mp-lobby" class="screen hidden">
+      <h2 class="screen-title">⚔️ Multiplayer</h2>
+      <div id="mp-lobby-content" class="mp-lobby"></div>
+      <button id="btn-back-mp" class="back-btn">← Back</button>
+    </div>
+
     <!-- ═══ GAME SCREEN ═══ -->
     <div id="screen-game" class="screen hidden"></div>
 
   </div>
 
   <!-- Scripts (order matters) -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="js/cards.js"></script>
   <script src="js/storage.js"></script>
   <script src="js/cpu.js"></script>
   <script src="js/game.js"></script>
   <script src="js/deck.js"></script>
   <script src="js/menu.js"></script>
+  <script src="js/multiplayer.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

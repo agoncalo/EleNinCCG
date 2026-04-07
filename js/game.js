@@ -78,6 +78,14 @@ class Game {
 
     // ── DOM refs (set in buildDOM) ───────────────────────────
     this.el = {};
+
+    // ── Multiplayer (set externally before start) ────────────
+    this.isMultiplayer = false;
+    this.isHost = false;
+    this._mpSyncTimer = 0;
+    this._cpuMoveCD = 0;
+    this._lastGuestMoveTime = 0;
+    this._remoteDeckCount = null;
   }
 
   // ── Helpers ────────────────────────────────────────────────
@@ -247,21 +255,28 @@ class Game {
   start() {
     this.buildDOM();
 
-    // Draw initial hands (each slot from its own deck)
-    for (let i = 0; i < 3; i++) {
-      const pSlot = this._getDecksForSlot(i, true);
-      this.playerHand[i].card  = this._drawFromDeck(pSlot.deck, pSlot.discard);
-      this.playerHand[i].state = this.playerHand[i].card ? 'ready' : 'empty';
-      const cSlot = this._getDecksForSlot(i, false);
-      this.cpuHand[i].card     = this._drawFromDeck(cSlot.deck, cSlot.discard);
-      this.cpuHand[i].state    = this.cpuHand[i].card ? 'ready' : 'empty';
+    // Draw initial hands (skip for multiplayer guest — state comes from host)
+    if (!this.isMultiplayer || this.isHost) {
+      for (let i = 0; i < 3; i++) {
+        const pSlot = this._getDecksForSlot(i, true);
+        this.playerHand[i].card  = this._drawFromDeck(pSlot.deck, pSlot.discard);
+        this.playerHand[i].state = this.playerHand[i].card ? 'ready' : 'empty';
+        const cSlot = this._getDecksForSlot(i, false);
+        this.cpuHand[i].card     = this._drawFromDeck(cSlot.deck, cSlot.discard);
+        this.cpuHand[i].state    = this.cpuHand[i].card ? 'ready' : 'empty';
+      }
     }
 
     this.running  = true;
     this.lastTime = performance.now();
     this._boundKey = (e) => this._onKey(e);
     document.addEventListener('keydown', this._boundKey);
-    this._raf = requestAnimationFrame((t) => this._loop(t));
+
+    // Only run game loop for host / single-player (guest renders from state)
+    if (!this.isMultiplayer || this.isHost) {
+      this._raf = requestAnimationFrame((t) => this._loop(t));
+    }
+
     this.render();
   }
 
@@ -288,6 +303,7 @@ class Game {
   // ════════════════════════════════════════════════════════════
   update(dt) {
     this.moveCD = Math.max(0, this.moveCD - dt);
+    if (this.isMultiplayer) this._cpuMoveCD = Math.max(0, this._cpuMoveCD - dt);
 
     // Speed buff timer
     if (this.playerNinja.speedTimer > 0) this.playerNinja.speedTimer -= dt;
@@ -300,8 +316,8 @@ class Game {
     this._updateHandSlots(this.playerHand, true, dt);
     this._updateHandSlots(this.cpuHand, false, dt);
 
-    // CPU AI
-    this.cpu.update(dt);
+    // CPU AI (disabled in multiplayer — remote player controls CPU)
+    if (!this.isMultiplayer) this.cpu.update(dt);
 
     // Projectiles
     this._updateProjectiles(dt);
@@ -345,6 +361,15 @@ class Game {
     // Trophy win check — first to reach the limit wins
     if (this.running && this.trophyPlayer >= this.trophyLimit) { this._endGame(true, 'trophy');  }
     if (this.running && this.trophyCpu    >= this.trophyLimit) { this._endGame(false, 'trophy'); }
+
+    // Multiplayer: send state to guest
+    if (this.isMultiplayer && this.isHost) {
+      this._mpSyncTimer += dt;
+      if (this._mpSyncTimer >= 50) {
+        this._mpSyncTimer = 0;
+        Multiplayer.send({ type: 'state', state: this._serializeState() });
+      }
+    }
   }
 
   _updateHandSlots(hand, isPlayer, dt) {
@@ -387,6 +412,14 @@ class Game {
   }
 
   movePlayer(dir) {
+    // Multiplayer guest: send input to host
+    if (this.isMultiplayer && !this.isHost) {
+      const now = performance.now();
+      if (now - this._lastGuestMoveTime < this.baseMoveCD) return;
+      this._lastGuestMoveTime = now;
+      Multiplayer.send({ type: 'input', action: 'move', dir });
+      return;
+    }
     const cd = this.playerNinja.speedTimer > 0 ? this.baseMoveCD * 0.5 : this.baseMoveCD;
     if (this.moveCD > 0) return;
     const newCol = this.playerNinja.col + dir;
@@ -410,9 +443,14 @@ class Game {
   }
 
   moveCpu(dir) {
+    if (this.isMultiplayer) {
+      if (this.cpuNinja.stunTimer > 0) return;
+      if (this._cpuMoveCD > 0) return;
+    }
     const newCol = this.cpuNinja.col + dir;
     if (newCol >= 0 && newCol <= 3) {
       this.cpuNinja.col = newCol;
+      if (this.isMultiplayer) this._cpuMoveCD = this.baseMoveCD;
       this._checkIceSlide(this.cpuNinja, 0, dir);
     }
   }
@@ -434,6 +472,11 @@ class Game {
   //  CARD PLAY (Player)
   // ════════════════════════════════════════════════════════════
   playCard(slot) {
+    // Multiplayer guest: send input to host
+    if (this.isMultiplayer && !this.isHost) {
+      Multiplayer.send({ type: 'input', action: 'playCard', slot });
+      return;
+    }
     if (this.playerNinja.stunTimer > 0) return;
     const s = this.playerHand[slot];
     if (!s.card || s.state !== 'ready') return;
@@ -475,6 +518,7 @@ class Game {
   //  CARD PLAY (CPU)
   // ════════════════════════════════════════════════════════════
   cpuPlayCard(slot) {
+    if (this.isMultiplayer && this.cpuNinja.stunTimer > 0) return;
     const s = this.cpuHand[slot];
     if (!s.card || s.state !== 'ready') return;
 
@@ -1294,6 +1338,11 @@ class Game {
   }
 
   _renderDeckCount() {
+    if (this.isMultiplayer && !this.isHost && this._remoteDeckCount) {
+      this.el.plrDeck.textContent = '🃏 ' + this._remoteDeckCount.plr;
+      this.el.cpuDeck.textContent = '🃏 ' + this._remoteDeckCount.cpu;
+      return;
+    }
     const plrTotal = this.playerDeckZ.length + this.playerDeckX.length + this.playerDeckC.length;
     const cpuTotal = this.cpuDeckZ.length + this.cpuDeckX.length + this.cpuDeckC.length;
     this.el.plrDeck.textContent = '🃏 ' + plrTotal;
@@ -1353,11 +1402,113 @@ class Game {
   }
 
   // ════════════════════════════════════════════════════════════
+  //  MULTIPLAYER STATE SYNC
+  // ════════════════════════════════════════════════════════════
+
+  /** Host: serialize full game state for sending to guest */
+  _serializeState() {
+    return {
+      pN: this.playerNinja,
+      cN: this.cpuNinja,
+      grid: this.grid,
+      proj: this.projectiles,
+      ft: this.floatingTexts,
+      sa: this.slashArcs,
+      te: this.tileEffects,
+      cH: this.cpuHand,
+      tP: this.trophyPlayer,
+      tC: this.trophyCpu,
+      tL: this.trophyLimit,
+      ca: this._cellAnims,
+      pDC: this.playerDeckZ.length + this.playerDeckX.length + this.playerDeckC.length,
+      cDC: this.cpuDeckZ.length + this.cpuDeckX.length + this.cpuDeckC.length
+    };
+  }
+
+  /** Guest: apply mirrored host state and render */
+  applyRemoteState(s) {
+    // Host's CPU ninja → Guest's player ninja (bottom)
+    this.playerNinja = s.cN;
+    // Host's player ninja → Guest's enemy ninja (top)
+    this.cpuNinja = s.pN;
+
+    // Flip grid rows (0↔3, 1↔2) and invert isPlayer flags
+    for (let r = 0; r < 4; r++) {
+      const hostRow = 3 - r;
+      const src = s.grid[hostRow];
+      this.grid[r] = src.map(c => c ? Object.assign({}, c, { isPlayer: !c.isPlayer }) : null);
+    }
+
+    // Flip projectiles
+    this.projectiles = (s.proj || []).map(p => ({
+      col: p.col, y: 3 - p.y, dir: -p.dir,
+      damage: p.damage, isPlayer: !p.isPlayer,
+      speed: p.speed, poison: p.poison,
+      pushback: p.pushback, areaEffect: p.areaEffect,
+      element: p.element
+    }));
+
+    // Flip floating texts
+    this.floatingTexts = (s.ft || []).map(ft => ({
+      text: ft.text, row: 3 - ft.row, col: ft.col,
+      color: ft.color, life: ft.life, maxLife: ft.maxLife
+    }));
+
+    // Flip slash arcs
+    this.slashArcs = (s.sa || []).map(a => ({
+      col: a.col, row: 3 - a.row, isPlayer: !a.isPlayer,
+      life: a.life, maxLife: a.maxLife
+    }));
+
+    // Flip tile effects
+    this.tileEffects = (s.te || []).map(t => ({
+      type: t.type, row: 3 - t.row, col: t.col,
+      life: t.life, tickTimer: t.tickTimer
+    }));
+
+    // Guest hand = host CPU hand
+    this.playerHand = s.cH;
+
+    // Trophies (swapped)
+    this.trophyPlayer = s.tC;
+    this.trophyCpu = s.tP;
+    this.trophyLimit = s.tL;
+
+    // Deck counts (swapped)
+    this._remoteDeckCount = { plr: s.cDC || 0, cpu: s.pDC || 0 };
+
+    // Cell animations (flip rows)
+    this._cellAnims = {};
+    if (s.ca) {
+      for (const key in s.ca) {
+        const parts = key.split(',');
+        this._cellAnims[(3 - parseInt(parts[0])) + ',' + parts[1]] = s.ca[key];
+      }
+    }
+
+    this.render();
+  }
+
+  /** Host: apply input from remote guest player */
+  applyRemoteInput(msg) {
+    if (!this.running) return;
+    switch (msg.action) {
+      case 'move': this.moveCpu(msg.dir); break;
+      case 'playCard': this.cpuPlayCard(msg.slot); break;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
   //  GAME END
   // ════════════════════════════════════════════════════════════
   _endGame(playerWon, reason) {
     this.running = false;
     document.removeEventListener('keydown', this._boundKey);
+
+    // Multiplayer: notify remote player
+    if (this.isMultiplayer && this.isHost) {
+      Multiplayer.send({ type: 'game-end', playerWon, reason });
+    }
 
     // Build result overlay
     const overlay = document.createElement('div');
@@ -1368,7 +1519,7 @@ class Game {
       : '';
 
     let rewardHtml = '';
-    if (playerWon) {
+    if (playerWon && !this.isMultiplayer) {
       // Track progress
       if (!Storage.isEnemyDefeated(this.enemyData.id)) {
         Storage.defeatEnemy(this.enemyData.id);
@@ -1403,7 +1554,7 @@ class Game {
         ${trophyStr}
         ${rewardHtml}
         <div class="result-buttons">
-          <button id="btn-retry">Retry</button>
+          ${!this.isMultiplayer ? '<button id="btn-retry">Retry</button>' : ''}
           <button id="btn-result-back">Back to Menu</button>
         </div>
       </div>
@@ -1411,10 +1562,12 @@ class Game {
 
     document.getElementById('screen-game').appendChild(overlay);
 
-    document.getElementById('btn-retry').onclick = () => {
-      overlay.remove();
-      this.onEnd('retry');
-    };
+    if (!this.isMultiplayer) {
+      document.getElementById('btn-retry').onclick = () => {
+        overlay.remove();
+        this.onEnd('retry');
+      };
+    }
     document.getElementById('btn-result-back').onclick = () => {
       overlay.remove();
       this.onEnd('menu');
