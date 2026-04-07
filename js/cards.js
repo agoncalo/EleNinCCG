@@ -76,26 +76,26 @@ const CARD_DB = {
   mega_potion:    { id: 'mega_potion',    name: 'Mega Potion',    type: 'item', element: 'grass',    effect: 'heal',   value: 20, rarity: 'rare',       sticker: '✨', description: '+20 HP', itemCooldown: 2000 },
   // Regeneration items (heal over time)
   bandage:        { id: 'bandage',        name: 'Bandage',        type: 'item', element: 'normal',   effect: 'regen',  value: 2, duration: 5000,  rarity: 'common',     sticker: '🩹', description: '+2/s for 5s', itemCooldown: 800 },
-  herbal_salve:   { id: 'herbal_salve',   name: 'Herbal Salve',   type: 'item', element: 'grass',    effect: 'regen',  value: 3, duration: 6000,  rarity: 'uncommon',   sticker: '🌿', description: '+3/s for 6s', itemCooldown: 1500 },
-  phoenix_balm:   { id: 'phoenix_balm',   name: 'Phoenix Balm',   type: 'item', element: 'fire',     effect: 'regen',  value: 5, duration: 8000,  rarity: 'rare',       sticker: '🔶', description: '+5/s for 8s', itemCooldown: 2500 },
+  herbal_salve:   { id: 'herbal_salve',   name: 'Herbal Salve',   type: 'item', element: 'grass',    effect: 'regen',  value: 3, duration: 6000,  rarity: 'uncommon',   sticker: '🌿', sticker2: '💚', description: '+3/s for 6s', itemCooldown: 1500 },
+  phoenix_balm:   { id: 'phoenix_balm',   name: 'Phoenix Balm',   type: 'item', element: 'fire',     effect: 'regen',  value: 5, duration: 8000,  rarity: 'rare',       sticker: '🔶', sticker2: '🔥', description: '+5/s for 8s', itemCooldown: 2500 },
   // Shields (now bubble: blocks all damage for a duration)
-  shield_scroll:  { id: 'shield_scroll',  name: 'Shield Scroll',  type: 'item', element: 'normal',   effect: 'bubble', value: 2000,  rarity: 'common',     sticker: '📜', description: '🛡️2s bubble', itemCooldown: 1000 },
-  ice_armor:      { id: 'ice_armor',      name: 'Ice Armor',      type: 'item', element: 'ice',      effect: 'bubble', value: 4000,  rarity: 'rare',       sticker: '🧊', description: '🛡️4s bubble', itemCooldown: 2000 },
+  shield_scroll:  { id: 'shield_scroll',  name: 'Shield Scroll',  type: 'item', element: 'normal',   effect: 'bubble', value: 2000,  rarity: 'common',     sticker: '📜', sticker2: '🛡️', description: '🛡️2s bubble', itemCooldown: 1000 },
+  ice_armor:      { id: 'ice_armor',      name: 'Ice Armor',      type: 'item', element: 'ice',      effect: 'bubble', value: 4000,  rarity: 'rare',       sticker: '🧊', sticker2: '🛡️', description: '🛡️4s bubble', itemCooldown: 2000 },
   // Dodge
   smoke_bomb:     { id: 'smoke_bomb',     name: 'Smoke Bomb',     type: 'item', element: 'wind',     effect: 'dodge',  value: 1,  rarity: 'uncommon',   sticker: '💨', description: 'Dodge next hit', itemCooldown: 800 },
   // Boost
-  power_pill:     { id: 'power_pill',     name: 'Power Pill',     type: 'item', element: 'normal',   effect: 'boost',  value: 4,  rarity: 'uncommon',   sticker: '💊', description: '+4 ATK', itemCooldown: 600 },
-  fire_elixir:    { id: 'fire_elixir',    name: 'Fire Elixir',    type: 'item', element: 'fire',     effect: 'boost',  value: 6,  rarity: 'rare',       sticker: '🔥', description: '+6 ATK', itemCooldown: 1000 },
+  power_pill:     { id: 'power_pill',     name: 'Power Pill',     type: 'item', element: 'normal',   effect: 'boost',  value: 4,  rarity: 'uncommon',   sticker: '💊', sticker2: '⚔️', description: '+4 ATK', itemCooldown: 600 },
+  fire_elixir:    { id: 'fire_elixir',    name: 'Fire Elixir',    type: 'item', element: 'fire',     effect: 'boost',  value: 6,  rarity: 'rare',       sticker: '🧪', sticker2: '🔥', description: '+6 ATK', itemCooldown: 1000 },
   // Speed (now quickens cooldowns)
-  speed_scroll:   { id: 'speed_scroll',   name: 'Speed Scroll',   type: 'item', element: 'wind',     effect: 'speed',  value: 5000, rarity: 'uncommon', sticker: '🏃', description: 'Fast CD 5s', itemCooldown: 800 },
+  speed_scroll:   { id: 'speed_scroll',   name: 'Speed Scroll',   type: 'item', element: 'wind',     effect: 'speed',  value: 5000, rarity: 'uncommon', sticker: '📜', sticker2: '💨', description: 'Fast CD 5s', itemCooldown: 800 },
   // AOE
-  thunder_charm:  { id: 'thunder_charm',  name: 'Thunder Charm',  type: 'item', element: 'electric', effect: 'aoe',    value: 4,  rarity: 'rare',       sticker: '🔮', description: '⚡4 all summons', itemCooldown: 1200 },
+  thunder_charm:  { id: 'thunder_charm',  name: 'Thunder Charm',  type: 'item', element: 'electric', effect: 'aoe',    value: 4,  rarity: 'rare',       sticker: '🔮', sticker2: '⚡', description: '⚡4 all summons', itemCooldown: 1200 },
   // Oils (imbue attacks with element for a duration)
-  fire_oil:       { id: 'fire_oil',       name: 'Fire Oil',       type: 'item', element: 'fire',     effect: 'oil', oilElement: 'fire',     value: 8000, rarity: 'uncommon',   sticker: '🛢️', description: '🔥 imbue 8s', itemCooldown: 1000 },
-  water_oil:      { id: 'water_oil',      name: 'Water Oil',      type: 'item', element: 'water',    effect: 'oil', oilElement: 'water',    value: 8000, rarity: 'uncommon',   sticker: '🛢️', description: '💧 imbue 8s', itemCooldown: 1000 },
-  electric_oil:   { id: 'electric_oil',   name: 'Electric Oil',   type: 'item', element: 'electric', effect: 'oil', oilElement: 'electric', value: 8000, rarity: 'uncommon',   sticker: '🛢️', description: '⚡ imbue 8s', itemCooldown: 1000 },
-  ice_oil:        { id: 'ice_oil',        name: 'Ice Oil',        type: 'item', element: 'ice',      effect: 'oil', oilElement: 'ice',      value: 8000, rarity: 'uncommon',   sticker: '🛢️', description: '❄️ imbue 8s', itemCooldown: 1000 },
-  dark_oil:       { id: 'dark_oil',       name: 'Dark Oil',       type: 'item', element: 'dark',     effect: 'oil', oilElement: 'dark',     value: 8000, rarity: 'uncommon',   sticker: '🛢️', description: '🌑 imbue 8s', itemCooldown: 1000 },
+  fire_oil:       { id: 'fire_oil',       name: 'Fire Oil',       type: 'item', element: 'fire',     effect: 'oil', oilElement: 'fire',     value: 8000, rarity: 'uncommon',   sticker: '🛢️', sticker2: '🔥', description: '🔥 imbue 8s', itemCooldown: 1000 },
+  water_oil:      { id: 'water_oil',      name: 'Water Oil',      type: 'item', element: 'water',    effect: 'oil', oilElement: 'water',    value: 8000, rarity: 'uncommon',   sticker: '🛢️', sticker2: '💧', description: '💧 imbue 8s', itemCooldown: 1000 },
+  electric_oil:   { id: 'electric_oil',   name: 'Electric Oil',   type: 'item', element: 'electric', effect: 'oil', oilElement: 'electric', value: 8000, rarity: 'uncommon',   sticker: '🛢️', sticker2: '⚡', description: '⚡ imbue 8s', itemCooldown: 1000 },
+  ice_oil:        { id: 'ice_oil',        name: 'Ice Oil',        type: 'item', element: 'ice',      effect: 'oil', oilElement: 'ice',      value: 8000, rarity: 'uncommon',   sticker: '🛢️', sticker2: '❄️', description: '❄️ imbue 8s', itemCooldown: 1000 },
+  dark_oil:       { id: 'dark_oil',       name: 'Dark Oil',       type: 'item', element: 'dark',     effect: 'oil', oilElement: 'dark',     value: 8000, rarity: 'uncommon',   sticker: '🛢️', sticker2: '🌑', description: '🌑 imbue 8s', itemCooldown: 1000 },
   // Food (gives a variety of stats)
   rice_ball:      { id: 'rice_ball',      name: 'Rice Ball',      type: 'item', element: 'normal',   effect: 'food', foodHp: 4, foodBoost: 1,  rarity: 'common',     sticker: '🍙', description: '+4 HP +1 ATK', itemCooldown: 600 },
   meat_skewer:    { id: 'meat_skewer',    name: 'Meat Skewer',    type: 'item', element: 'fire',     effect: 'food', foodHp: 3, foodBoost: 3,  rarity: 'uncommon',   sticker: '🍖', description: '+3 HP +3 ATK', itemCooldown: 800 },
@@ -124,11 +124,11 @@ const CARD_DB = {
 
   // ── EQUIPMENT ────────────────────────────────────────────
   throwing_stars:  { id: 'throwing_stars',  name: 'Throwing Stars',  type: 'equipment', element: 'normal',   damage: 2, uses: 5, cooldown: 600,  rarity: 'common',   sticker: '🌟', description: '⚔2 ×5' },
-  bamboo_shield:   { id: 'bamboo_shield',   name: 'Bamboo Shield',   type: 'equipment', element: 'normal',   effect: 'bubble', value: 1500, uses: 4, cooldown: 1200, rarity: 'common', sticker: '🎋', description: '🛡️1.5s ×4' },
+  bamboo_shield:   { id: 'bamboo_shield',   name: 'Bamboo Shield',   type: 'equipment', element: 'normal',   effect: 'bubble', value: 1500, uses: 4, cooldown: 1200, rarity: 'common', sticker: '🎋', sticker2: '🛡️', description: '🛡️1.5s ×4' },
   katana:          { id: 'katana',          name: 'Katana',          type: 'equipment', element: 'normal',   damage: 4, uses: 3, cooldown: 1800, rarity: 'uncommon', sticker: '⚔️', description: '⚔4 ×3', melee: true },
-  war_fan:         { id: 'war_fan',         name: 'War Fan',         type: 'equipment', element: 'wind',     damage: 3, uses: 3, cooldown: 1500, rarity: 'rare',     sticker: '🌀', description: '⚔3+push ×3', pushback: true, melee: true },
-  flame_kunai:     { id: 'flame_kunai',     name: 'Flame Kunai',     type: 'equipment', element: 'fire',     damage: 3, uses: 4, cooldown: 1000, rarity: 'uncommon', sticker: '🔥', description: '🔥3 ×4' },
-  shock_gloves:    { id: 'shock_gloves',    name: 'Shock Gloves',    type: 'equipment', element: 'electric', damage: 3, uses: 3, cooldown: 1200, rarity: 'uncommon', sticker: '⚡', description: '⚡3+stun ×3', melee: true },
+  war_fan:         { id: 'war_fan',         name: 'War Fan',         type: 'equipment', element: 'wind',     damage: 3, uses: 3, cooldown: 1500, rarity: 'rare',     sticker: '🌀', sticker2: '💨', description: '⚔3+push ×3', pushback: true, melee: true },
+  flame_kunai:     { id: 'flame_kunai',     name: 'Flame Kunai',     type: 'equipment', element: 'fire',     damage: 3, uses: 4, cooldown: 1000, rarity: 'uncommon', sticker: '�️', sticker2: '�🔥', description: '🔥3 ×4' },
+  shock_gloves:    { id: 'shock_gloves',    name: 'Shock Gloves',    type: 'equipment', element: 'electric', damage: 3, uses: 3, cooldown: 1200, rarity: 'uncommon', sticker: '🧤', sticker2: '⚡', description: '⚡3+stun ×3', melee: true },
 };
 
 // ── Starter data ─────────────────────────────────────────────
@@ -274,6 +274,10 @@ function elementColor(element) {
 }
 function elementIcon(element) {
   return ELEMENTS[element] ? ELEMENTS[element].icon : '⚪';
+}
+function renderSticker(obj) {
+  if (obj.sticker2) return `<span class="dual-sticker"><span class="sticker-base">${obj.sticker}</span><span class="sticker-over">${obj.sticker2}</span></span>`;
+  return obj.sticker;
 }
 function elementName(element) {
   return ELEMENTS[element] ? ELEMENTS[element].name : 'Normal';

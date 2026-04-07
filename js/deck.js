@@ -119,7 +119,7 @@ const DeckEditor = {
           <span class="col-card-type" style="background:${cardColor(card.type)}">${card.type.toUpperCase()}</span>
           <span class="col-card-elem" style="background:${elColor}">${elIcon}</span>
         </div>
-        <div class="col-card-sticker">${card.sticker}</div>
+        <div class="col-card-sticker">${renderSticker(card)}</div>
         <div class="col-card-name" style="color:${rarityColor(card.rarity)}">${card.name}</div>
         <div class="col-card-rarity" style="color:${rarityColor(card.rarity)}">${card.rarity.replace('_',' ')}</div>
         <div class="col-card-stats">${statsLine}</div>

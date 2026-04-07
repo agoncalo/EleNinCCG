@@ -466,6 +466,10 @@ html, body {
 .card-type-badge { font-size: 0.5rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; display: inline-block; text-transform: uppercase; letter-spacing: 0.3px; }
 .card-elem-badge { font-size: 0.5rem; font-weight: 700; padding: 2px 6px; border-radius: 4px; color: #fff; display: inline-block; }
 .card-sticker-big { font-size: 2rem; line-height: 1; text-align: center; margin: 4px 0 2px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
+/* Dual overlapping sticker */
+.dual-sticker { position: relative; display: inline-block; }
+.dual-sticker .sticker-base { display: inline-block; }
+.dual-sticker .sticker-over { position: absolute; bottom: -4px; right: -8px; font-size: 0.55em; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.8)); }
 .stat-big { font-size: 0.95rem; font-weight: 800; letter-spacing: -0.5px; }
 .stat-uses { font-size: 0.7rem; color: var(--gold); font-weight: 700; margin-left: 3px; }
 .elem-badge { font-size: 0.65rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; color: #fff; display: inline-block; }

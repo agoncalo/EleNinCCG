@@ -1023,6 +1023,7 @@ class Game {
       isPlayer: isPlayer,
       id: card.id,
       sticker: card.sticker,
+      sticker2: card.sticker2 || null,
       element: card.element || 'normal',
       trophyPts: card.trophyPts || 1,
       stunTimer: 0
@@ -1417,7 +1418,7 @@ class Game {
           if (hpPct <= 25) cell.classList.add('near-death');
           const sElIcon = elementIcon(summon.element || 'normal');
           cell.innerHTML = `
-            <div class="summon-sticker">${summon.sticker}</div>
+            <div class="summon-sticker">${renderSticker(summon)}</div>
             <div class="summon-hp-bar"><div class="summon-hp-fill" style="width:${hpPct}%;background:${hpColor}"></div></div>
             <div class="summon-stats">${sElIcon} ♥${summon.hp} ⚔${summon.atk} 🏆${summon.trophyPts || 1}</div>
           `;
@@ -1521,7 +1522,7 @@ class Game {
             <span class="card-type-badge" style="background:${typeColor}">${card.type.toUpperCase()}</span>
             <span class="card-elem-badge" style="background:${elColor}">${elIcon}</span>
           </div>
-          <div class="card-sticker-big">${card.sticker}</div>
+          <div class="card-sticker-big">${renderSticker(card)}</div>
           <div class="card-title">${card.name}</div>
           ${statsHtml}
         `;
@@ -1829,7 +1830,7 @@ class Game {
           const rElColor = elementColor(c.element || 'normal');
           return `<div class="reward-card" style="border-color:${cardColor(c.type)}">
             <div class="card-header-row"><span class="card-type-badge" style="background:${cardColor(c.type)}">${c.type.toUpperCase()}</span><span class="card-elem-badge" style="background:${rElColor}">${rElIcon}</span></div>
-            <div class="reward-sticker">${c.sticker}</div>
+            <div class="reward-sticker">${renderSticker(c)}</div>
             <div class="card-title">${c.name}</div>
             <div class="reward-rarity" style="color:${rarityColor(c.rarity)}">${c.rarity.replace('_',' ').toUpperCase()}</div>
           </div>`;
