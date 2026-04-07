@@ -8,8 +8,8 @@ class Game {
     this.enemyData = enemyData;
 
     // ── Ninjas ───────────────────────────────────────────────
-    this.playerNinja = { col: 1, hp: 30, maxHp: 30, shield: 0, boost: 0, dodge: false, poison: 0, speedTimer: 0, stunTimer: 0 };
-    this.cpuNinja    = { col: 2, hp: enemyData.hp, maxHp: enemyData.hp, shield: 0, boost: 0, dodge: false, poison: 0, speedTimer: 0, stunTimer: 0 };
+    this.playerNinja = { col: 1, hp: 30, maxHp: 30, shield: 0, boost: 0, dodge: false, poison: 0, speedTimer: 0, stunTimer: 0, regenTimer: 0, regenValue: 0, regenDuration: 0, bubbleTimer: 0, oilElement: null, oilTimer: 0, transformSprite: null, transformElement: null };
+    this.cpuNinja    = { col: 2, hp: enemyData.hp, maxHp: enemyData.hp, shield: 0, boost: 0, dodge: false, poison: 0, speedTimer: 0, stunTimer: 0, regenTimer: 0, regenValue: 0, regenDuration: 0, bubbleTimer: 0, oilElement: null, oilTimer: 0, transformSprite: null, transformElement: null };
 
     // Previous HP for flash effects
     this._prevPlayerHp = 30;
@@ -91,6 +91,10 @@ class Game {
     this._playerQueue = [null, null, null]; // buffered slot indices
     this._cpuQueue    = [null, null, null];
     this._guestLocalDt = 0; // for local cooldown tick
+
+    // ── Item cooldown (shared per side, set by item strength) ──
+    this._playerItemCD = 0;
+    this._cpuItemCD = 0;
   }
 
   // ── Helpers ────────────────────────────────────────────────
@@ -194,6 +198,7 @@ class Game {
     plrBar.className = 'info-bar player-bar';
     plrBar.innerHTML = `
       <span class="ninja-label player-color">🥷 You</span>
+      <span class="elem-badge" id="plr-elem-badge" style="background:#aaa">⚪</span>
       <span class="hp-wrap"><span class="hp-bar player-hp" id="plr-hp-bar"></span><span id="plr-hp-text" class="hp-text"></span></span>
       <span class="deck-count" id="plr-deck-count"></span>
     `;
@@ -252,6 +257,7 @@ class Game {
     this.el.cpuHpText = document.getElementById('cpu-hp-text');
     this.el.plrHpBar  = document.getElementById('plr-hp-bar');
     this.el.plrHpText = document.getElementById('plr-hp-text');
+    this.el.plrElemBadge = document.getElementById('plr-elem-badge');
     this.el.cpuDeck   = document.getElementById('cpu-deck-count');
     this.el.plrDeck   = document.getElementById('plr-deck-count');
     this.el.trophyPlr      = document.getElementById('trophy-plr-count');
@@ -337,6 +343,23 @@ class Game {
 
     // Speed buff timer
     if (this.playerNinja.speedTimer > 0) this.playerNinja.speedTimer -= dt;
+    if (this.cpuNinja.speedTimer > 0) this.cpuNinja.speedTimer -= dt;
+
+    // Bubble timers
+    if (this.playerNinja.bubbleTimer > 0) this.playerNinja.bubbleTimer -= dt;
+    if (this.cpuNinja.bubbleTimer > 0) this.cpuNinja.bubbleTimer -= dt;
+
+    // Oil timers
+    if (this.playerNinja.oilTimer > 0) { this.playerNinja.oilTimer -= dt; if (this.playerNinja.oilTimer <= 0) this.playerNinja.oilElement = null; }
+    if (this.cpuNinja.oilTimer > 0) { this.cpuNinja.oilTimer -= dt; if (this.cpuNinja.oilTimer <= 0) this.cpuNinja.oilElement = null; }
+
+    // Regen tick (once per second)
+    this._updateRegen(this.playerNinja, true, dt);
+    this._updateRegen(this.cpuNinja, false, dt);
+
+    // Item cooldown timer (shared per side)
+    if (this._playerItemCD > 0) this._playerItemCD -= (this.playerNinja.speedTimer > 0 ? dt * 2 : dt);
+    if (this._cpuItemCD > 0) this._cpuItemCD -= (this.cpuNinja.speedTimer > 0 ? dt * 2 : dt);
 
     // Stun timers — flush queued inputs when stun ends
     if (this.playerNinja.stunTimer > 0) {
@@ -418,10 +441,13 @@ class Game {
 
   _updateHandSlots(hand, isPlayer, dt) {
     const queue = isPlayer ? this._playerQueue : this._cpuQueue;
+    const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
+    // Speed buff doubles cooldown tick rate for all slots
+    const speedMult = ninja.speedTimer > 0 ? 2 : 1;
     for (let i = 0; i < 3; i++) {
       const s = hand[i];
       if (s.state === 'drawing') {
-        s.timer -= dt;
+        s.timer -= dt * speedMult;
         if (s.timer <= 0) {
           const { deck, discard } = this._getDecksForSlot(i, isPlayer);
           s.card = this._drawFromDeck(deck, discard);
@@ -430,7 +456,7 @@ class Game {
           s.timer = 0;
         }
       } else if (s.state === 'cooldown') {
-        s.timer -= dt;
+        s.timer -= dt * speedMult;
         if (s.timer <= 0) {
           s.state = 'ready';
           s.timer = 0;
@@ -478,7 +504,7 @@ class Game {
       }
       return;
     }
-    const cd = this.playerNinja.speedTimer > 0 ? this.baseMoveCD * 0.5 : this.baseMoveCD;
+    const cd = this.baseMoveCD;
     if (this.moveCD > 0) return;
     const newCol = this.playerNinja.col + dir;
     if (newCol >= 0 && newCol <= 3) {
@@ -648,6 +674,24 @@ class Game {
     if (s.card) {
       const { discard } = this._getDecksForSlot(slotIdx, isPlayer);
       discard.push(s.card.id);
+      // Apply item cooldown as extra draw time (stronger items = longer draw)
+      if (s.card.type === 'item' && s.card.itemCooldown && s.card.itemCooldown > 0) {
+        const cd = s.card.itemCooldown;
+        s.card = null;
+        s.state = 'drawing';
+        s.timer = 2000 + cd;
+        s.usesLeft = 0;
+        return;
+      }
+      // Apply attack cooldown when attack slot is consumed
+      if (s.card.type === 'attack' && s.card.atkCooldown && s.card.atkCooldown > 0) {
+        const cd = s.card.atkCooldown;
+        s.card = null;
+        s.state = 'drawing';
+        s.timer = 2000 + cd;
+        s.usesLeft = 0;
+        return;
+      }
     }
     s.card  = null;
     s.state = 'drawing';
@@ -663,6 +707,13 @@ class Game {
   _applyElementDamage(baseDmg, atkElement, defElement) {
     const mult = getElementMultiplier(atkElement || 'normal', defElement || 'normal');
     return { dmg: Math.round(baseDmg * mult), mult };
+  }
+
+  // Get defensive element for a ninja (respects transformation)
+  _ninjaDefElement(isPlayer) {
+    const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
+    if (ninja.transformElement) return ninja.transformElement;
+    return isPlayer ? 'normal' : (this.enemyData.element || 'normal');
   }
 
   _applyElementOnHit(atkElement, isPlayer, targetRow, targetCol) {
@@ -711,14 +762,14 @@ class Game {
         break;
       }
       case 'cleanse_enemy': {
-        if (targetRow === 0) { this.cpuNinja.boost = 0; this.cpuNinja.dodge = false; }
-        if (targetRow === 3) { this.playerNinja.boost = 0; this.playerNinja.dodge = false; }
+        if (targetRow === 0) { this.cpuNinja.boost = 0; this.cpuNinja.dodge = false; this.cpuNinja.bubbleTimer = 0; this.cpuNinja.oilTimer = 0; this.cpuNinja.oilElement = null; }
+        if (targetRow === 3) { this.playerNinja.boost = 0; this.playerNinja.dodge = false; this.playerNinja.bubbleTimer = 0; this.playerNinja.oilTimer = 0; this.playerNinja.oilElement = null; }
         this._spawnText('Cleanse!', targetRow, targetCol, '#3498db');
         break;
       }
       case 'shield': {
-        ninja.shield += 2;
-        this._spawnText('+🛡️2', isPlayer ? 3 : 0, ninja.col, '#b8860b');
+        ninja.bubbleTimer = Math.max(ninja.bubbleTimer, 1500);
+        this._spawnText('+🛡️1.5s', isPlayer ? 3 : 0, ninja.col, '#b8860b');
         break;
       }
     }
@@ -734,7 +785,9 @@ class Game {
     const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
     let dmg = card.damage;
     if (ninja.boost > 0) { dmg += ninja.boost; ninja.boost = 0; }
-    const element = card.element || 'normal';
+    // Oil imbue: override element if oil active
+    let element = card.element || 'normal';
+    if (ninja.oilElement) element = ninja.oilElement;
     if (card.melee) {
       SFX.backstab();
       this._executeMeleeHit(dmg, col, isPlayer, card.poison || 0, card.pushback || false, element);
@@ -743,13 +796,15 @@ class Game {
       this._executeHitscanAttack(dmg, col, isPlayer, card, element);
     } else {
       SFX.shuriken();
+      // Projectile speed: weaker = faster (3 dmg → 7 speed, 12 dmg → 3 speed)
+      const projSpeed = Math.max(3, 8 - (card.damage || 5) * 0.5);
       this.projectiles.push({
         col: col,
         y: isPlayer ? 3 : 0,
         dir: isPlayer ? -1 : 1,
         damage: dmg,
         isPlayer: isPlayer,
-        speed: 4.5,
+        speed: projSpeed,
         poison: card.poison || 0,
         pushback: card.pushback || false,
         areaEffect: card.areaEffect || null,
@@ -775,8 +830,7 @@ class Game {
     }
     // Hit ninja if in that column
     if (col === targetNinja.col) {
-      const defEl = this.enemyData.element || 'normal';
-      const actualDefEl = isPlayer ? defEl : 'normal';
+      const actualDefEl = this._ninjaDefElement(!isPlayer);
       const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, actualDefEl);
       this._damageNinja(!isPlayer, adjDmg);
       this._showMultiplierText(mult, ninjaRow, col);
@@ -804,7 +858,7 @@ class Game {
         this._applyElementOnHit(atkEl, isPlayer, 1, col);
         hitRow = 1;
       } else if (col === this.cpuNinja.col) {
-        const defEl = this.enemyData.element || 'normal';
+        const defEl = this._ninjaDefElement(false);
         const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, defEl);
         this._damageNinja(false, adjDmg);
         this._showMultiplierText(mult, 0, col);
@@ -824,7 +878,7 @@ class Game {
         this._applyElementOnHit(atkEl, false, 2, col);
         hitRow = 2;
       } else if (col === this.playerNinja.col) {
-        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, 'normal');
+        const { dmg: adjDmg, mult } = this._applyElementDamage(dmg, atkEl, this._ninjaDefElement(true));
         this._damageNinja(true, adjDmg);
         this._showMultiplierText(mult, 3, col);
         if (poison) this.playerNinja.poison += poison;
@@ -845,7 +899,6 @@ class Game {
         SFX.pickup();
         ninja.hp = Math.min(ninja.maxHp, ninja.hp + card.value);
         this._spawnText('+' + card.value, isPlayer ? 3 : 0, ninja.col, '#2ecc71');
-        // Heal pulse on sprite + green vignette for player
         this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-heal', 500);
         if (isPlayer) {
           this.el.wrap.classList.remove('heal-vignette');
@@ -853,10 +906,26 @@ class Game {
           this.el.wrap.classList.add('heal-vignette');
         }
         break;
-      case 'shield':
+      case 'regen':
+        SFX.pickup();
+        ninja.regenValue = card.value;
+        ninja.regenDuration = card.duration;
+        ninja.regenTimer = 0;
+        this._spawnText('Regen +' + card.value + '/s', isPlayer ? 3 : 0, ninja.col, '#2ecc71');
+        this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-heal', 500);
+        break;
+      case 'bubble':
         SFX.armor();
-        ninja.shield += card.value;
-        this._spawnText('+🛡️' + card.value, isPlayer ? 3 : 0, ninja.col, '#3498db');
+        ninja.bubbleTimer = card.value;
+        ninja.shield = 0; // bubble replaces shield
+        this._spawnText('🛡️Bubble ' + (card.value / 1000) + 's!', isPlayer ? 3 : 0, ninja.col, '#3498db');
+        this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-shield', 400);
+        break;
+      case 'shield':
+        // Legacy compat — treat as bubble (2s)
+        SFX.armor();
+        ninja.bubbleTimer = 2000;
+        this._spawnText('🛡️Bubble!', isPlayer ? 3 : 0, ninja.col, '#3498db');
         this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-shield', 400);
         break;
       case 'dodge':
@@ -872,11 +941,10 @@ class Game {
       case 'speed':
         SFX.special();
         ninja.speedTimer = card.value;
-        this._spawnText('Speed!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
+        this._spawnText('Fast CD!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
         break;
       case 'aoe': {
         SFX.slam();
-        // Damage all enemy summons (element-aware)
         const row = isPlayer ? 1 : 2;
         const atkEl = card.element || 'normal';
         for (let c = 0; c < 4; c++) {
@@ -888,6 +956,51 @@ class Game {
           }
         }
         this._spawnText('⚡AOE ' + card.value, isPlayer ? 2 : 1, 1.5, '#f5a623');
+        break;
+      }
+      case 'oil':
+        SFX.special();
+        ninja.oilElement = card.oilElement;
+        ninja.oilTimer = card.value;
+        this._spawnText(elementIcon(card.oilElement) + ' Oil!', isPlayer ? 3 : 0, ninja.col, elementColor(card.oilElement));
+        break;
+      case 'food': {
+        SFX.pickup();
+        if (card.foodHp) {
+          ninja.hp = Math.min(ninja.maxHp, ninja.hp + card.foodHp);
+          this._spawnText('+' + card.foodHp + ' HP', isPlayer ? 3 : 0, ninja.col, '#2ecc71');
+        }
+        if (card.foodMaxHp) {
+          ninja.maxHp += card.foodMaxHp;
+          ninja.hp += card.foodMaxHp;
+          this._spawnText('+' + card.foodMaxHp + ' maxHP', isPlayer ? 3 : 0, ninja.col, '#f5a623');
+        }
+        if (card.foodBoost) {
+          ninja.boost += card.foodBoost;
+          this._spawnText('+⚔️' + card.foodBoost, isPlayer ? 3 : 0, ninja.col, '#e94560');
+        }
+        if (card.foodSpeed) {
+          ninja.speedTimer = Math.max(ninja.speedTimer, card.foodSpeed);
+          this._spawnText('Fast CD!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
+        }
+        this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-heal', 500);
+        if (isPlayer) {
+          this.el.wrap.classList.remove('heal-vignette');
+          void this.el.wrap.offsetWidth;
+          this.el.wrap.classList.add('heal-vignette');
+        }
+        break;
+      }
+      case 'transform': {
+        SFX.bossSpawn();
+        // Preserve HP proportion
+        const hpRatio = ninja.hp / ninja.maxHp;
+        ninja.maxHp += card.transformMaxHp;
+        ninja.hp = Math.max(1, Math.round(hpRatio * ninja.maxHp));
+        ninja.transformSprite = card.transformSprite;
+        ninja.transformElement = card.transformElement;
+        this._spawnText('🔄 Transform!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
+        this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-spawn', 500);
         break;
       }
     }
@@ -919,31 +1032,38 @@ class Game {
 
   // ── Equipment: attack or block ─────────────────────────────
   _executeEquipment(card, col, isPlayer) {
-    const element = card.element || 'normal';
+    let element = card.element || 'normal';
+    const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
+    // Oil imbue for equipment attacks
+    if (ninja.oilElement && card.damage) element = ninja.oilElement;
     if (card.damage) {
-      const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
       let dmg = card.damage;
       if (ninja.boost > 0) { dmg += ninja.boost; ninja.boost = 0; }
       if (card.melee) {
         this._executeMeleeHit(dmg, col, isPlayer, 0, card.pushback || false, element);
       } else {
+        const projSpeed = Math.max(3, 8 - (card.damage || 3) * 0.5);
         this.projectiles.push({
           col: col, y: isPlayer ? 3 : 0,
           dir: isPlayer ? -1 : 1,
           damage: dmg, isPlayer: isPlayer,
-          speed: 5, poison: 0,
+          speed: projSpeed, poison: 0,
           pushback: card.pushback || false,
           element: element
         });
       }
     }
     if (card.effect === 'block') {
-      const ninja = isPlayer ? this.playerNinja : this.cpuNinja;
-      ninja.shield += card.value;
-      this._spawnText('+🛡️' + card.value, isPlayer ? 3 : 0, ninja.col, '#3498db');
+      const n = isPlayer ? this.playerNinja : this.cpuNinja;
+      n.shield += card.value;
+      this._spawnText('+🛡️' + card.value, isPlayer ? 3 : 0, n.col, '#3498db');
+    }
+    if (card.effect === 'bubble') {
+      ninja.bubbleTimer = Math.max(ninja.bubbleTimer, card.value);
+      this._spawnText('🛡️Bubble ' + (card.value / 1000) + 's!', isPlayer ? 3 : 0, ninja.col, '#3498db');
+      this._triggerCellAnim(isPlayer ? 3 : 0, ninja.col, 'sprite-shield', 400);
     }
     if (card.effect === 'pull') {
-      // Pull enemy ninja to this column
       const target = isPlayer ? this.cpuNinja : this.playerNinja;
       target.col = col;
       this._spawnText('Pulled!', isPlayer ? 0 : 3, col, '#f5a623');
@@ -984,7 +1104,7 @@ class Game {
         }
         // Check CPU ninja (row 0)
         if (p.y <= 0.5 && p.col === this.cpuNinja.col) {
-          const defEl = this.enemyData.element || 'normal';
+          const defEl = this._ninjaDefElement(false);
           const { dmg, mult } = this._applyElementDamage(p.damage, pEl, defEl);
           this._damageNinja(false, dmg);
           this._showMultiplierText(mult, 0, p.col);
@@ -1016,7 +1136,7 @@ class Game {
         }
         // Check player ninja (row 3)
         if (p.y >= 2.5 && p.col === this.playerNinja.col) {
-          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, 'normal');
+          const { dmg, mult } = this._applyElementDamage(p.damage, pEl, this._ninjaDefElement(true));
           this._damageNinja(true, dmg);
           this._showMultiplierText(mult, 3, p.col);
           this._applyElementOnHit(pEl, false, 3, p.col);
@@ -1061,7 +1181,7 @@ class Game {
               this._showMultiplierText(mult, 1, c);
               this._applyElementOnHit(atkEl, true, 1, c);
             } else if (c === this.cpuNinja.col) {
-              const defEl = this.enemyData.element || 'normal';
+              const defEl = this._ninjaDefElement(false);
               const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, defEl);
               this._damageNinja(false, dmg);
               this._showMultiplierText(mult, 0, c);
@@ -1076,7 +1196,7 @@ class Game {
               this._showMultiplierText(mult, 2, c);
               this._applyElementOnHit(atkEl, false, 2, c);
             } else if (c === this.playerNinja.col) {
-              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, 'normal');
+              const { dmg, mult } = this._applyElementDamage(s.atk, atkEl, this._ninjaDefElement(true));
               this._damageNinja(true, dmg);
               this._showMultiplierText(mult, 3, c);
               this._applyElementOnHit(atkEl, false, 3, c);
@@ -1103,13 +1223,13 @@ class Game {
       this._spawnText('DODGE!', isPlayer ? 3 : 0, ninja.col, '#f5a623');
       return;
     }
-    let dmg = amount;
-    if (ninja.shield > 0) {
-      const blocked = Math.min(ninja.shield, dmg);
-      ninja.shield -= blocked;
-      dmg -= blocked;
-      if (blocked > 0) { SFX.parry(); this._spawnText('🛡️-' + blocked, isPlayer ? 3 : 0, ninja.col, '#3498db'); }
+    // Bubble: blocks ALL damage while active
+    if (ninja.bubbleTimer > 0) {
+      SFX.parry();
+      this._spawnText('🛡️Blocked!', isPlayer ? 3 : 0, ninja.col, '#3498db');
+      return;
     }
+    let dmg = amount;
     if (dmg > 0) {
       ninja.hp = Math.max(0, ninja.hp - dmg);
       if (isPlayer) SFX.playerHurt(); else SFX.hit();
@@ -1257,20 +1377,31 @@ class Game {
         if (r === 0 && c === cpuCol) {
           cell.classList.add('ninja-cell', 'enemy-ninja');
           if (this.cpuNinja.stunTimer > 0) cell.classList.add('stunned');
-          cell.innerHTML = `<div class="ninja-icon">${this.enemyData.portrait}</div>`;
+          if (this.cpuNinja.dodge) cell.classList.add('evasion-blink');
+          if (this.cpuNinja.bubbleTimer > 0) cell.classList.add('bubble-active');
+          const cpuSprite = this.cpuNinja.transformSprite || this.enemyData.portrait;
+          cell.innerHTML = `<div class="ninja-icon">${cpuSprite}</div>`;
           if (this.cpuNinja.hp <= this.cpuNinja.maxHp * 0.2) cell.classList.add('near-death');
-          if (this.cpuNinja.shield > 0) cell.innerHTML += `<div class="status-icon shield-icon">🛡️${this.cpuNinja.shield}</div>`;
+          if (this.cpuNinja.bubbleTimer > 0) cell.innerHTML += `<div class="status-icon shield-icon">🛡️${Math.ceil(this.cpuNinja.bubbleTimer / 1000)}s</div>`;
           if (this.cpuNinja.poison > 0) cell.innerHTML += `<div class="status-icon poison-icon">☠️${this.cpuNinja.poison}</div>`;
+          if (this.cpuNinja.oilElement) cell.innerHTML += `<div class="status-icon oil-icon">${elementIcon(this.cpuNinja.oilElement)}🛢️</div>`;
+          if (this.cpuNinja.regenDuration > 0) cell.innerHTML += `<div class="status-icon regen-icon">💚${this.cpuNinja.regenValue}</div>`;
         }
         if (r === 3 && c === plrCol) {
           cell.classList.add('ninja-cell', 'player-ninja');
           if (this.playerNinja.stunTimer > 0) cell.classList.add('stunned');
-          cell.innerHTML = `<div class="ninja-icon">🥷</div>`;
+          if (this.playerNinja.dodge) cell.classList.add('evasion-blink');
+          if (this.playerNinja.bubbleTimer > 0) cell.classList.add('bubble-active');
+          const plrSprite = this.playerNinja.transformSprite || '🥷';
+          cell.innerHTML = `<div class="ninja-icon">${plrSprite}</div>`;
           if (this.playerNinja.hp <= this.playerNinja.maxHp * 0.2) cell.classList.add('near-death');
-          if (this.playerNinja.shield > 0) cell.innerHTML += `<div class="status-icon shield-icon">🛡️${this.playerNinja.shield}</div>`;
+          if (this.playerNinja.bubbleTimer > 0) cell.innerHTML += `<div class="status-icon shield-icon">🛡️${Math.ceil(this.playerNinja.bubbleTimer / 1000)}s</div>`;
           if (this.playerNinja.poison > 0) cell.innerHTML += `<div class="status-icon poison-icon">☠️${this.playerNinja.poison}</div>`;
           if (this.playerNinja.boost > 0) cell.innerHTML += `<div class="status-icon boost-icon">⚔️+${this.playerNinja.boost}</div>`;
           if (this.playerNinja.dodge) cell.innerHTML += `<div class="status-icon dodge-icon">💨</div>`;
+          if (this.playerNinja.oilElement) cell.innerHTML += `<div class="status-icon oil-icon">${elementIcon(this.playerNinja.oilElement)}🛢️</div>`;
+          if (this.playerNinja.regenDuration > 0) cell.innerHTML += `<div class="status-icon regen-icon">💚${this.playerNinja.regenValue}</div>`;
+          if (this.playerNinja.speedTimer > 0) cell.innerHTML += `<div class="status-icon speed-icon">🏃</div>`;
         }
 
         // Summon rows
@@ -1347,17 +1478,21 @@ class Game {
         let statsHtml = '';
         if (card.type === 'attack')    statsHtml = `<div class="card-stat atk"><span class="stat-big">⚔${card.damage}</span></div>`;
         if (card.type === 'item') {
-          if (card.effect === 'heal')        statsHtml = `<div class="card-stat itm"><span class="stat-big">💚+${card.value}</span></div>`;
-          else if (card.effect === 'shield') statsHtml = `<div class="card-stat itm"><span class="stat-big">🛡️${card.value}</span></div>`;
-          else if (card.effect === 'dodge')  statsHtml = `<div class="card-stat itm"><span class="stat-big">💨</span></div>`;
-          else if (card.effect === 'boost')  statsHtml = `<div class="card-stat itm"><span class="stat-big">⚔+${card.value}</span></div>`;
-          else if (card.effect === 'speed')  statsHtml = `<div class="card-stat itm"><span class="stat-big">🏃</span></div>`;
-          else if (card.effect === 'aoe')    statsHtml = `<div class="card-stat itm"><span class="stat-big">⚡${card.value}</span></div>`;
+          if (card.effect === 'heal')          statsHtml = `<div class="card-stat itm"><span class="stat-big">💚+${card.value}</span></div>`;
+          else if (card.effect === 'regen')    statsHtml = `<div class="card-stat itm"><span class="stat-big">💚+${card.value}/s</span></div>`;
+          else if (card.effect === 'shield' || card.effect === 'bubble') statsHtml = `<div class="card-stat itm"><span class="stat-big">🛡️${(card.value/1000)}s</span></div>`;
+          else if (card.effect === 'dodge')    statsHtml = `<div class="card-stat itm"><span class="stat-big">💨</span></div>`;
+          else if (card.effect === 'boost')    statsHtml = `<div class="card-stat itm"><span class="stat-big">⚔+${card.value}</span></div>`;
+          else if (card.effect === 'speed')    statsHtml = `<div class="card-stat itm"><span class="stat-big">🏃CD</span></div>`;
+          else if (card.effect === 'aoe')      statsHtml = `<div class="card-stat itm"><span class="stat-big">⚡${card.value}</span></div>`;
+          else if (card.effect === 'oil')      statsHtml = `<div class="card-stat itm"><span class="stat-big">${elementIcon(card.oilElement)}🛢️</span></div>`;
+          else if (card.effect === 'food')     statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.description}</span></div>`;
+          else if (card.effect === 'transform') statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.transformSprite}</span></div>`;
           else statsHtml = `<div class="card-stat itm"><span class="stat-big">${card.description}</span></div>`;
         }
         if (card.type === 'summon')    statsHtml = `<div class="card-stat sum"><span class="stat-big">♥${card.hp} ⚔${card.atk}</span><span class="stat-trophy">🏆${card.trophyPts || 1}</span></div>`;
         if (card.type === 'equipment') {
-          const mainStat = card.damage ? `⚔${card.damage}` : `🛡️${card.value}`;
+          const mainStat = card.damage ? `⚔${card.damage}` : card.effect === 'bubble' ? `🛡️${(card.value/1000)}s` : `🛡️${card.value}`;
           statsHtml = `<div class="card-stat eq"><span class="stat-big">${mainStat}</span><span class="stat-uses">×${s.usesLeft}</span></div>`;
         }
 
@@ -1441,6 +1576,12 @@ class Game {
 
     this.el.plrHpBar.className = plrClass;
     this.el.cpuHpBar.className = cpuClass;
+
+    // Update player element badge for transformation
+    const plrEl = this.playerNinja.transformElement || 'normal';
+    const plrElInfo = ELEMENTS[plrEl] || ELEMENTS.normal;
+    this.el.plrElemBadge.style.background = plrElInfo.color;
+    this.el.plrElemBadge.textContent = plrElInfo.icon;
   }
 
   _renderTrophy() {
@@ -1620,6 +1761,23 @@ class Game {
     switch (msg.action) {
       case 'move': this.moveCpu(msg.dir); break;
       case 'playCard': this.cpuPlayCard(msg.slot); break;
+    }
+  }
+
+  // ── Regen tick helper ──────────────────────────────────────
+  _updateRegen(ninja, isPlayer, dt) {
+    if (ninja.regenDuration <= 0) return;
+    ninja.regenDuration -= dt;
+    ninja.regenTimer += dt;
+    if (ninja.regenTimer >= 1000) {
+      ninja.regenTimer -= 1000;
+      const heal = ninja.regenValue;
+      ninja.hp = Math.min(ninja.maxHp, ninja.hp + heal);
+      this._spawnText('+' + heal, isPlayer ? 3 : 0, ninja.col, '#2ecc71');
+    }
+    if (ninja.regenDuration <= 0) {
+      ninja.regenValue = 0;
+      ninja.regenTimer = 0;
     }
   }
 

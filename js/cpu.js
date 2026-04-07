@@ -134,12 +134,20 @@ class CpuAI {
       if (card.effect === 'heal' && hp.hp < hp.maxHp * healThreshold) {
         g.cpuPlayCard(2); return;
       }
+      // Regen: use when below 60%
+      if (card.effect === 'regen' && hp.hp < hp.maxHp * 0.6 && hp.regenDuration <= 0) {
+        g.cpuPlayCard(2); return;
+      }
+      // Food: use when below 70% or when boost would help
+      if (card.effect === 'food' && hp.hp < hp.maxHp * 0.7) {
+        g.cpuPlayCard(2); return;
+      }
       // Also heal if poisoned and below 70%
       if (card.effect === 'heal' && hp.poison > 0 && hp.hp < hp.maxHp * 0.7) {
         g.cpuPlayCard(2); return;
       }
-      // Shield when we have none and will likely be attacked
-      if (card.effect === 'shield' && hp.shield === 0) {
+      // Bubble when we have none and will likely be attacked
+      if ((card.effect === 'bubble' || card.effect === 'shield') && hp.bubbleTimer <= 0) {
         g.cpuPlayCard(2); return;
       }
       // Dodge when aligned with player (they're about to hit us)
@@ -150,8 +158,16 @@ class CpuAI {
       if (card.effect === 'boost' && g.cpuHand[0].card && g.cpuHand[0].state === 'ready') {
         g.cpuPlayCard(2); return;
       }
-      // Speed when we need to reposition
+      // Oil: use if no oil active and attack is ready
+      if (card.effect === 'oil' && !hp.oilElement && g.cpuHand[0].card && Math.random() < this.difficulty) {
+        g.cpuPlayCard(2); return;
+      }
+      // Speed when cooldowns are available
       if (card.effect === 'speed' && hp.speedTimer <= 0 && Math.random() < this.difficulty) {
+        g.cpuPlayCard(2); return;
+      }
+      // Transform: use whenever available (very powerful)
+      if (card.effect === 'transform') {
         g.cpuPlayCard(2); return;
       }
       // AOE when player has 2+ summons
